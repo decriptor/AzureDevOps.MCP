@@ -1,0 +1,30 @@
+---
+layout: default
+---
+
+<!-- Hero Section -->
+<section class="bg-gradient-to-br from-azure-blue to-azure-dark text-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+    <div class="text-center">
+      <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+        {{ page.title | default: site.title }}
+      </h1>
+      <p class="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto leading-relaxed">
+        A comprehensive <strong>Model Context Protocol (MCP)</strong> server that provides seamless integration with Azure DevOps. Enable AI assistants and development tools to interact with your Azure DevOps projects.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <a href="{{ '/getting-started/' | relative_url }}" class="bg-white text-azure-blue px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 shadow-lg">
+          Get Started
+        </a>
+        <a href="https://github.com/decriptor/AzureDevOps.MCP" class="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white hover:text-azure-blue transition-all duration-300 transform hover:scale-105">
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Content -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+  {{ content }}
+</div>

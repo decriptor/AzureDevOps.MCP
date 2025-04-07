@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <title>{% if page.title %}{{ page.title | escape }} | {{ site.title | escape }}{% else %}{{ site.title | escape }}{% endif %}</title>
+  <meta name="description" content="{{ page.excerpt | default: site.description | strip_html | normalize_whitespace | truncate: 160 | escape }}">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'azure-blue': '#0078d4',
+            'azure-dark': '#005a9e',
+            'azure-light': '#40e0d0',
+            'azure-gray': '#323130',
+          },
+          fontFamily: {
+            'sans': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Custom CSS for code highlighting and prose -->
+  <style>
+    /* Enhanced code highlighting */
+    .highlight { 
+      @apply bg-gray-900 text-gray-100 rounded-lg p-6 overflow-x-auto text-sm shadow-lg;
+      position: relative;
+    }
+    .highlight:before {
+      content: attr(data-lang);
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      @apply text-xs text-gray-400 uppercase;
+    }
+    .highlight .c { color: #6a9955; } /* Comment - green */
+    .highlight .s { color: #ce9178; } /* String - orange */
+    .highlight .k { color: #569cd6; } /* Keyword - blue */
+    .highlight .n { color: #9cdcfe; } /* Name - light blue */
+    .highlight .o { color: #d4d4d4; } /* Operator - light gray */
+    .highlight .p { color: #ffd700; } /* Punctuation - gold */
+    .highlight .nb { color: #4ec9b0; } /* Built-in - teal */
+    
+    /* Copy button for code blocks */
+    .code-block-wrapper {
+      position: relative;
+    }
+    .copy-button {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      @apply bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs transition-colors;
+    }
+    
+    /* Enhanced prose styling */
+    .prose { @apply max-w-none text-lg leading-relaxed; }
+    .prose h1 { @apply text-5xl font-bold text-gray-900 mb-8 mt-12 first:mt-0; }
+    .prose h2 { 
+      @apply text-4xl font-bold text-gray-900 mb-8 mt-16 first:mt-0 border-b-2 border-azure-blue pb-4;
+      background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .prose h3 { @apply text-3xl font-bold text-gray-900 mb-6 mt-12; }
+    .prose h4 { @apply text-2xl font-bold text-gray-900 mb-4 mt-8; }
+    .prose h5 { @apply text-xl font-bold text-gray-900 mb-3 mt-6; }
+    .prose p { @apply text-gray-700 leading-8 mb-6 text-lg; }
+    .prose ul { @apply list-none mb-6 space-y-3; }
+    .prose ul li { @apply text-gray-700 pl-6 relative; }
+    .prose ul li:before { 
+      content: "→"; 
+      @apply absolute left-0 text-azure-blue font-bold;
+    }
+    .prose ol { @apply list-decimal list-inside mb-6 space-y-3; }
+    .prose ol li { @apply text-gray-700 text-lg; }
+    .prose a { 
+      @apply text-azure-blue hover:text-azure-dark underline decoration-2 underline-offset-4 transition-all duration-300;
+    }
+    .prose a:hover {
+      @apply bg-azure-blue/10 px-1 py-0.5 rounded;
+    }
+    .prose code { 
+      @apply bg-gray-100 text-red-600 px-2 py-1 rounded text-base font-mono border;
+    }
+    .prose pre { 
+      @apply bg-gray-900 border border-gray-700 rounded-xl p-6 overflow-x-auto mb-8 shadow-lg;
+    }
+    .prose pre code { 
+      @apply bg-transparent text-gray-100 p-0 border-0;
+    }
+    .prose blockquote { 
+      @apply border-l-4 border-azure-blue bg-blue-50 p-6 italic my-8 rounded-r-lg shadow-sm;
+    }
+    .prose table { 
+      @apply w-full border-collapse border border-gray-300 mb-8 rounded-lg overflow-hidden shadow-sm;
+    }
+    .prose th { 
+      @apply bg-azure-blue text-white p-4 text-left border border-gray-300 font-semibold text-lg;
+    }
+    .prose td { @apply p-4 border border-gray-300 text-lg; }
+    .prose tr:nth-child(even) { @apply bg-gray-50; }
+    .prose strong { @apply font-semibold text-gray-900; }
+    .prose em { @apply italic text-gray-600; }
+    
+    /* Enhanced visual elements */
+    .section-divider {
+      @apply my-16 border-t-2 border-gradient-to-r from-transparent via-azure-blue to-transparent;
+    }
+    
+    /* Smooth scrolling and animations */
+    html { scroll-behavior: smooth; }
+    
+    /* Focus states */
+    a:focus, button:focus { @apply outline-2 outline-azure-blue outline-offset-2; }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      @apply bg-gray-100;
+    }
+    ::-webkit-scrollbar-thumb {
+      @apply bg-azure-blue rounded-full;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      @apply bg-azure-dark;
+    }
+  </style>
+  
+  <!-- Canonical URL -->
+  <link rel="canonical" href="{{ page.url | replace:'index.html','' | absolute_url }}">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+  
+  <!-- SEO -->
+  {% seo %}
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-900 leading-relaxed">
+  {% include header.html %}
+  
+  <main class="min-h-screen">
+    {{ content }}
+  </main>
+  
+  {% include footer.html %}
+  
+  <!-- Analytics placeholder -->
+  <!-- Add your analytics code here -->
+</body>
+</html>

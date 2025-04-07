@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+      - nuget-cache:/home/vscode/.nuget:cached
+    command: sleep infinity
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_NOLOGO=1
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "8080:8080"
+      - "5000:5000"
+      - "5001:5001"
+    networks:
+      - dev-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass devpassword123!
+    networks:
+      - dev-network
+
+volumes:
+  nuget-cache:
+
+networks:
+  dev-network:
+    driver: bridge
