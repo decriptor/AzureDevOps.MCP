@@ -1,0 +1,47 @@
+# Gitpod Configuration for Azure DevOps MCP
+image: gitpod/workspace-dotnet
+
+ports:
+  - port: 8080
+    onOpen: notify
+    description: "MCP Server"
+  - port: 5000
+    onOpen: ignore
+    description: "HTTP Development"
+  - port: 5001
+    onOpen: ignore
+    description: "HTTPS Development"
+
+tasks:
+  - name: Setup Development Environment
+    init: |
+      # Restore dependencies
+      dotnet restore
+
+      # Build project
+      dotnet build
+
+      echo "✅ Development environment ready!"
+    command: |
+      # Show info and instructions
+      echo "🚀 Azure DevOps MCP Development Environment"
+      echo "📝 Configure your Azure DevOps settings:"
+      echo "   1. Copy .env.example to .env.development"
+      echo "   2. Add your organization URL and PAT"
+      echo "   3. Run: dotnet run --project src/AzureDevOps.MCP"
+
+vscode:
+  extensions:
+    - ms-dotnettools.csharp
+    - ms-dotnettools.csdevkit
+    - editorconfig.editorconfig
+    - ms-azuretools.vscode-docker
+
+github:
+  prebuilds:
+    # Enable for the main branch (to speed up Codespaces)
+    main: true
+    # Enable for pull requests
+    pullRequests: true
+    # Enable for branches that are not main/master
+    branches: false

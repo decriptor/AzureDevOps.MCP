@@ -1,0 +1,46 @@
+{
+  "name": "Azure DevOps MCP",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "dotnet.defaultSolution": "AzureDevOps.MCP.slnx",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll": "explicit"
+        }
+      },
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "editorconfig.editorconfig",
+        "ms-azuretools.vscode-docker",
+        "github.vscode-github-actions"
+      ]
+    }
+  },
+
+  "postCreateCommand": "dotnet restore && dotnet build",
+
+  "forwardPorts": [8080, 5000, 5001],
+  "portsAttributes": {
+    "8080": {
+      "label": "MCP Server",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "remoteEnv": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "ASPNETCORE_ENVIRONMENT": "Development"
+  },
+
+  "remoteUser": "vscode"
+}

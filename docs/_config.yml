@@ -1,0 +1,43 @@
+# Site settings
+title: Azure DevOps MCP Server
+description: A comprehensive Model Context Protocol server for Azure DevOps integration
+baseurl: "/AzureDevOps.MCP"
+url: "https://decriptor.github.io"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: null
+
+# Navigation
+header_pages:
+  - getting-started.md
+  - api-reference.md
+  - examples.md
+
+# GitHub
+github_username: decriptor
+repository: decriptor/AzureDevOps.MCP
+github:
+  repository_nwo: decriptor/AzureDevOps.MCP
+
+# Social
+social:
+  - platform: github
+    user_url: "https://github.com/decriptor/AzureDevOps.MCP"
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/

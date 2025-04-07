@@ -1,0 +1,16 @@
+{
+  "name": "Azure DevOps MCP (Minimal)",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp"
+      ]
+    }
+  },
+
+  "postCreateCommand": "dotnet restore",
+  "forwardPorts": [8080],
+  "remoteUser": "vscode"
+}

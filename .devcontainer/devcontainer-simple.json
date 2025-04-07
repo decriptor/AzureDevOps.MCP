@@ -1,0 +1,22 @@
+{
+  "name": "Azure DevOps MCP (Simple)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/AzureDevOps.Mcp",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "dotnet.defaultSolution": "AzureDevOps.MCP.slnx"
+      },
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "editorconfig.editorconfig"
+      ]
+    }
+  },
+
+  "postCreateCommand": "dotnet restore && dotnet build",
+  "remoteUser": "vscode"
+}
