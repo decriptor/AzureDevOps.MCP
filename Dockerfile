@@ -1,13 +1,14 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 80
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["AzureDevOps.MCP.csproj", "."]
-RUN dotnet restore "./AzureDevOps.MCP.csproj"
+COPY ["src/AzureDevOps.MCP/AzureDevOps.MCP.csproj", "src/AzureDevOps.MCP/"]
+COPY ["Directory.Packages.props", "."]
+RUN dotnet restore "src/AzureDevOps.MCP/AzureDevOps.MCP.csproj"
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src/src/AzureDevOps.MCP"
 RUN dotnet build "AzureDevOps.MCP.csproj" -c Release -o /app/build
 
 FROM build AS publish

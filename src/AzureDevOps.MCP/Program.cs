@@ -1,17 +1,18 @@
 using AzureDevOps.MCP.Services;
-using Microsoft.Model.Context.Extensions;
+using AzureDevOps.MCP.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddSingleton<IAzureDevOpsService, AzureDevOpsService>();
+builder.Services.AddSingleton<AzureDevOpsTools>();
 
-// Configure MCP
-builder.Services.AddMcp();
+// Configure MCP Server
+builder.Services
+    .AddMcpServer()
+    .WithStdioServerTransport()
+    .WithToolsFromAssembly();
 
 var app = builder.Build();
-
-// Configure middleware
-app.UseMcp();
 
 app.Run();

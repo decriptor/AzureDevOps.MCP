@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable central package management, https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>  <ItemGroup>
+    <PackageVersion Include="Microsoft.TeamFoundationServer.Client" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.VisualStudio.Services.Client" Version="19.225.1" />
+    <PackageVersion Include="ModelContextProtocol" Version="0.2.0-preview.3" />
+  </ItemGroup>
+</Project>
