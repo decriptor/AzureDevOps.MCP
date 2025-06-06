@@ -9,131 +9,129 @@ namespace AzureDevOps.MCP.Tests.Services;
 [TestClass]
 public class CacheServiceTests
 {
-    private CacheService _cacheService = null!;
-    private IMemoryCache _memoryCache = null!;
+	CacheService _cacheService = null!;
+	IMemoryCache _memoryCache = null!;
 
-    [TestInitialize]
-    public void Setup()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddMemoryCache();
-        
-        var provider = services.BuildServiceProvider();
-        _memoryCache = provider.GetRequiredService<IMemoryCache>();
-        var logger = provider.GetRequiredService<ILogger<CacheService>>();
-        
-        _cacheService = new CacheService(_memoryCache, logger);
-    }
+	[TestInitialize]
+	public void Setup ()
+	{
+		var services = new ServiceCollection ();
+		services.AddLogging ();
+		services.AddMemoryCache ();
 
-    [TestMethod]
-    public async Task GetAsync_WithNonExistentKey_ReturnsNull()
-    {
-        // Act
-        var result = await _cacheService.GetAsync<string>("nonexistent");
+		var provider = services.BuildServiceProvider ();
+		_memoryCache = provider.GetRequiredService<IMemoryCache> ();
+		var logger = provider.GetRequiredService<ILogger<CacheService>> ();
 
-        // Assert
-        result.Should().BeNull();
-    }
+		_cacheService = new CacheService (_memoryCache, logger);
+	}
 
-    [TestMethod]
-    public async Task SetAsync_AndGetAsync_ReturnsValue()
-    {
-        // Arrange
-        const string key = "test-key";
-        const string value = "test-value";
+	[TestMethod]
+	public async Task GetAsync_WithNonExistentKey_ReturnsNull ()
+	{
+		// Act
+		var result = await _cacheService.GetAsync<string> ("nonexistent");
 
-        // Act
-        await _cacheService.SetAsync(key, value);
-        var result = await _cacheService.GetAsync<string>(key);
+		// Assert
+		result.Should ().BeNull ();
+	}
 
-        // Assert
-        result.Should().Be(value);
-    }
+	[TestMethod]
+	public async Task SetAsync_AndGetAsync_ReturnsValue ()
+	{
+		// Arrange
+		const string key = "test-key";
+		const string value = "test-value";
 
-    [TestMethod]
-    public async Task GetOrSetAsync_WithNonExistentKey_CallsFactoryAndCaches()
-    {
-        // Arrange
-        const string key = "test-key";
-        const string value = "factory-value";
-        var factoryCalled = false;
+		// Act
+		await _cacheService.SetAsync (key, value);
+		var result = await _cacheService.GetAsync<string> (key);
 
-        // Act
-        var result = await _cacheService.GetOrSetAsync(key, () =>
-        {
-            factoryCalled = true;
-            return Task.FromResult(value);
-        });
+		// Assert
+		result.Should ().Be (value);
+	}
 
-        var cachedResult = await _cacheService.GetAsync<string>(key);
+	[TestMethod]
+	public async Task GetOrSetAsync_WithNonExistentKey_CallsFactoryAndCaches ()
+	{
+		// Arrange
+		const string key = "test-key";
+		const string value = "factory-value";
+		var factoryCalled = false;
 
-        // Assert
-        factoryCalled.Should().BeTrue();
-        result.Should().Be(value);
-        cachedResult.Should().Be(value);
-    }
+		// Act
+		var result = await _cacheService.GetOrSetAsync (key, () => {
+			factoryCalled = true;
+			return Task.FromResult (value);
+		});
 
-    [TestMethod]
-    public async Task GetOrSetAsync_WithExistingKey_DoesNotCallFactory()
-    {
-        // Arrange
-        const string key = "test-key";
-        const string cachedValue = "cached-value";
-        const string factoryValue = "factory-value";
-        var factoryCalled = false;
+		var cachedResult = await _cacheService.GetAsync<string> (key);
 
-        await _cacheService.SetAsync(key, cachedValue);
+		// Assert
+		factoryCalled.Should ().BeTrue ();
+		result.Should ().Be (value);
+		cachedResult.Should ().Be (value);
+	}
 
-        // Act
-        var result = await _cacheService.GetOrSetAsync(key, () =>
-        {
-            factoryCalled = true;
-            return Task.FromResult(factoryValue);
-        });
+	[TestMethod]
+	public async Task GetOrSetAsync_WithExistingKey_DoesNotCallFactory ()
+	{
+		// Arrange
+		const string key = "test-key";
+		const string cachedValue = "cached-value";
+		const string factoryValue = "factory-value";
+		var factoryCalled = false;
 
-        // Assert
-        factoryCalled.Should().BeFalse();
-        result.Should().Be(cachedValue);
-    }
+		await _cacheService.SetAsync (key, cachedValue);
 
-    [TestMethod]
-    public async Task RemoveAsync_RemovesItemFromCache()
-    {
-        // Arrange
-        const string key = "test-key";
-        const string value = "test-value";
+		// Act
+		var result = await _cacheService.GetOrSetAsync (key, () => {
+			factoryCalled = true;
+			return Task.FromResult (factoryValue);
+		});
 
-        await _cacheService.SetAsync(key, value);
+		// Assert
+		factoryCalled.Should ().BeFalse ();
+		result.Should ().Be (cachedValue);
+	}
 
-        // Act
-        await _cacheService.RemoveAsync(key);
-        var result = await _cacheService.GetAsync<string>(key);
+	[TestMethod]
+	public async Task RemoveAsync_RemovesItemFromCache ()
+	{
+		// Arrange
+		const string key = "test-key";
+		const string value = "test-value";
 
-        // Assert
-        result.Should().BeNull();
-    }
+		await _cacheService.SetAsync (key, value);
 
-    [TestMethod]
-    public void Clear_RemovesAllItemsFromCache()
-    {
-        // Arrange
-        const string key1 = "test-key-1";
-        const string key2 = "test-key-2";
-        const string value1 = "test-value-1";
-        const string value2 = "test-value-2";
+		// Act
+		await _cacheService.RemoveAsync (key);
+		var result = await _cacheService.GetAsync<string> (key);
 
-        _cacheService.SetAsync(key1, value1).Wait();
-        _cacheService.SetAsync(key2, value2).Wait();
+		// Assert
+		result.Should ().BeNull ();
+	}
 
-        // Act
-        _cacheService.Clear();
+	[TestMethod]
+	public void Clear_RemovesAllItemsFromCache ()
+	{
+		// Arrange
+		const string key1 = "test-key-1";
+		const string key2 = "test-key-2";
+		const string value1 = "test-value-1";
+		const string value2 = "test-value-2";
 
-        // Assert
-        var result1 = _cacheService.GetAsync<string>(key1).Result;
-        var result2 = _cacheService.GetAsync<string>(key2).Result;
+		_cacheService.SetAsync (key1, value1).Wait ();
+		_cacheService.SetAsync (key2, value2).Wait ();
 
-        result1.Should().BeNull();
-        result2.Should().BeNull();
-    }
+		// Act
+		_cacheService.Clear ();
+
+		// Assert
+		var result1 = _cacheService.GetAsync<string> (key1).Result;
+		var result2 = _cacheService.GetAsync<string> (key2).Result;
+
+		result1.Should ().BeNull ();
+		result2.Should ().BeNull ();
+	}
 }

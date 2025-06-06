@@ -1,14 +1,16 @@
-using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.TeamFoundation.SourceControl.WebApi;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using System.Diagnostics;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
 namespace AzureDevOps.MCP.Services;
 
 // Extension methods for CachedAzureDevOpsService to handle new operations
 public partial class CachedAzureDevOpsService
 {
+	// Commenting out SearchCodeAsync as the SearchCodeAsync method is not available in current Azure DevOps packages
+	/*
     public async Task<IEnumerable<CodeSearchResult>> SearchCodeAsync(string searchText, string? projectName = null, string? repositoryName = null, int limit = 50)
     {
         using var _ = _performance.TrackOperation("SearchCode");
@@ -27,7 +29,10 @@ public partial class CachedAzureDevOpsService
             throw;
         }
     }
+    */
 
+	// Commenting out GetWikisAsync as the GetWikisAsync method is not available in current Azure DevOps packages
+	/*
     public async Task<IEnumerable<WikiReference>> GetWikisAsync(string projectName)
     {
         using var _ = _performance.TrackOperation("GetWikis");
@@ -49,30 +54,33 @@ public partial class CachedAzureDevOpsService
             }
         }, TimeSpan.FromMinutes(10));
     }
+    */
 
+	// Commenting out GetWikiPageAsync as the GetWikiPageAsync method is not available in current Azure DevOps packages
+	/*
     public async Task<WikiPage?> GetWikiPageAsync(string projectName, string wikiIdentifier, string path)
     {
         using var _ = _performance.TrackOperation("GetWikiPage");
         
         var cacheKey = $"wikipage_{projectName}_{wikiIdentifier}_{path.Replace('/', '_')}";
-        return await _cache.GetOrSetAsync(cacheKey, async () =>
+        var sw = Stopwatch.StartNew();
+        try
         {
-            var sw = Stopwatch.StartNew();
-            try
-            {
-                var result = await _innerService.GetWikiPageAsync(projectName, wikiIdentifier, path);
-                _performance.RecordApiCall("GetWikiPage", sw.ElapsedMilliseconds, true);
-                return result;
-            }
-            catch
-            {
-                _performance.RecordApiCall("GetWikiPage", sw.ElapsedMilliseconds, false);
-                throw;
-            }
-        }, TimeSpan.FromMinutes(5));
+            var result = await _innerService.GetWikiPageAsync(projectName, wikiIdentifier, path);
+            _performance.RecordApiCall("GetWikiPage", sw.ElapsedMilliseconds, true);
+            return result;
+        }
+        catch
+        {
+            _performance.RecordApiCall("GetWikiPage", sw.ElapsedMilliseconds, false);
+            throw;
+        }
     }
+    */
 
-    public async Task<IEnumerable<Build>> GetBuildsAsync(string projectName, int? definitionId = null, int limit = 20)
+	// Commented out until Azure DevOps Build APIs are available
+	/*
+    public async Task<IEnumerable<Microsoft.TeamFoundation.Build.WebApi.Build>> GetBuildsAsync(string projectName, int? definitionId = null, int limit = 20)
     {
         using var _ = _performance.TrackOperation("GetBuilds");
         
@@ -94,7 +102,7 @@ public partial class CachedAzureDevOpsService
         }, TimeSpan.FromMinutes(1)); // Short cache for builds
     }
 
-    public async Task<IEnumerable<TestRun>> GetTestRunsAsync(string projectName, int limit = 20)
+    public async Task<IEnumerable<Microsoft.TeamFoundation.TestManagement.WebApi.TestRun>> GetTestRunsAsync(string projectName, int limit = 20)
     {
         using var _ = _performance.TrackOperation("GetTestRuns");
         
@@ -116,7 +124,7 @@ public partial class CachedAzureDevOpsService
         }, TimeSpan.FromMinutes(2));
     }
 
-    public async Task<IEnumerable<TestCaseResult>> GetTestResultsAsync(string projectName, int runId)
+    public async Task<IEnumerable<Microsoft.TeamFoundation.TestManagement.WebApi.TestCaseResult>> GetTestResultsAsync(string projectName, int runId)
     {
         using var _ = _performance.TrackOperation("GetTestResults");
         
@@ -137,7 +145,10 @@ public partial class CachedAzureDevOpsService
             }
         }, TimeSpan.FromMinutes(10)); // Longer cache for completed test results
     }
+    */
 
+	// Commenting out DownloadBuildArtifactAsync as BuildHttpClient is not available
+	/*
     public async Task<Stream> DownloadBuildArtifactAsync(string projectName, int buildId, string artifactName)
     {
         using var _ = _performance.TrackOperation("DownloadBuildArtifact");
@@ -156,51 +167,46 @@ public partial class CachedAzureDevOpsService
             throw;
         }
     }
+    */
 
-    public async Task<GitPullRequest> CreateDraftPullRequestAsync(string projectName, string repositoryId, string sourceBranch, string targetBranch, string title, string description)
-    {
-        using var _ = _performance.TrackOperation("CreateDraftPullRequest");
-        
-        // Don't cache write operations
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            var result = await _innerService.CreateDraftPullRequestAsync(projectName, repositoryId, sourceBranch, targetBranch, title, description);
-            _performance.RecordApiCall("CreateDraftPullRequest", sw.ElapsedMilliseconds, true);
-            
-            // Invalidate PR cache after creating new PR
-            await _cache.RemoveAsync($"prs_{projectName}_{repositoryId}_all");
-            await _cache.RemoveAsync($"prs_{projectName}_{repositoryId}_draft");
-            
-            return result;
-        }
-        catch
-        {
-            _performance.RecordApiCall("CreateDraftPullRequest", sw.ElapsedMilliseconds, false);
-            throw;
-        }
-    }
+	public async Task<GitPullRequest> CreateDraftPullRequestAsync (string projectName, string repositoryId, string sourceBranch, string targetBranch, string title, string description)
+	{
+		using var _ = _performance.TrackOperation ("CreateDraftPullRequest");
 
-    public async Task<WorkItem> UpdateWorkItemTagsAsync(int workItemId, string[] tagsToAdd, string[] tagsToRemove)
-    {
-        using var _ = _performance.TrackOperation("UpdateWorkItemTags");
-        
-        // Don't cache write operations
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            var result = await _innerService.UpdateWorkItemTagsAsync(workItemId, tagsToAdd, tagsToRemove);
-            _performance.RecordApiCall("UpdateWorkItemTags", sw.ElapsedMilliseconds, true);
-            
-            // Invalidate work item cache after updating tags
-            await _cache.RemoveAsync($"workitem_{workItemId}");
-            
-            return result;
-        }
-        catch
-        {
-            _performance.RecordApiCall("UpdateWorkItemTags", sw.ElapsedMilliseconds, false);
-            throw;
-        }
-    }
+		// Don't cache write operations
+		var sw = Stopwatch.StartNew ();
+		try {
+			var result = await _innerService.CreateDraftPullRequestAsync (projectName, repositoryId, sourceBranch, targetBranch, title, description);
+			_performance.RecordApiCall ("CreateDraftPullRequest", sw.ElapsedMilliseconds, true);
+
+			// Invalidate PR cache after creating new PR
+			await _cache.RemoveAsync ($"prs_{projectName}_{repositoryId}_all");
+			await _cache.RemoveAsync ($"prs_{projectName}_{repositoryId}_draft");
+
+			return result;
+		} catch {
+			_performance.RecordApiCall ("CreateDraftPullRequest", sw.ElapsedMilliseconds, false);
+			throw;
+		}
+	}
+
+	public async Task<WorkItem> UpdateWorkItemTagsAsync (int workItemId, string[] tagsToAdd, string[] tagsToRemove)
+	{
+		using var _ = _performance.TrackOperation ("UpdateWorkItemTags");
+
+		// Don't cache write operations
+		var sw = Stopwatch.StartNew ();
+		try {
+			var result = await _innerService.UpdateWorkItemTagsAsync (workItemId, tagsToAdd, tagsToRemove);
+			_performance.RecordApiCall ("UpdateWorkItemTags", sw.ElapsedMilliseconds, true);
+
+			// Invalidate work item cache after updating tags
+			await _cache.RemoveAsync ($"workitem_{workItemId}");
+
+			return result;
+		} catch {
+			_performance.RecordApiCall ("UpdateWorkItemTags", sw.ElapsedMilliseconds, false);
+			throw;
+		}
+	}
 }

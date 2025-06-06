@@ -11,4 +11,5 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="src/AzureDevOps.MCP/AzureDevOps.MCP.csproj" />
+  <Project Path="tests/AzureDevOps.MCP.Tests/AzureDevOps.MCP.Tests.csproj" />
 </Solution>

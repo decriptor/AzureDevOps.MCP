@@ -4,7 +4,11 @@
       "Bash(dotnet restore)",
       "Bash(dotnet build)",
       "Bash(rm:*)",
-      "Bash(dotnet new:*)"
+      "Bash(dotnet new:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(dotnet clean:*)"
     ],
     "deny": []
   }

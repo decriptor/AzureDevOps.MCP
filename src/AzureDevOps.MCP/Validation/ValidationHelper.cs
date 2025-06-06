@@ -4,207 +4,235 @@ namespace AzureDevOps.MCP.Validation;
 
 public static class ValidationHelper
 {
-    private static readonly Regex ProjectNameRegex = new(@"^[a-zA-Z0-9]([a-zA-Z0-9\-\._\s])*[a-zA-Z0-9]$", 
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    
-    private static readonly Regex BranchNameRegex = new(@"^[^/:?*\[\]\\]+$", 
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    
-    private static readonly Regex FilePathRegex = new(@"^[^<>:""|?*]+$", 
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	static readonly Regex ProjectNameRegex = new (@"^[a-zA-Z0-9]([a-zA-Z0-9\-\._\s])*[a-zA-Z0-9]$",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private static readonly string[] ForbiddenPathSequences = { "..", "//", "\\\\", "<", ">", "|", "?", "*", ":" };
-    
-    public const int MaxProjectNameLength = 64;
-    public const int MaxFilePathLength = 260;
-    public const int MaxBranchNameLength = 250;
-    public const int MaxWorkItemIdValue = int.MaxValue;
-    public const int MinWorkItemIdValue = 1;
+	static readonly Regex BranchNameRegex = new (@"^[^/:?*\[\]\\]+$",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    public static ValidationResult ValidateProjectName(string? projectName)
-    {
-        if (string.IsNullOrWhiteSpace(projectName))
-            return ValidationResult.Invalid("Project name cannot be null or empty");
+	static readonly Regex FilePathRegex = new (@"^[^<>:""|?*]+$",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-        if (projectName.Length > MaxProjectNameLength)
-            return ValidationResult.Invalid($"Project name cannot exceed {MaxProjectNameLength} characters");
+	static readonly string[] ForbiddenPathSequences = { "..", "//", "\\\\", "<", ">", "|", "?", "*", ":" };
 
-        if (projectName.Length < 2)
-            return ValidationResult.Invalid("Project name must be at least 2 characters long");
+	public const int MaxProjectNameLength = 64;
+	public const int MaxFilePathLength = 260;
+	public const int MaxBranchNameLength = 250;
+	public const int MaxWorkItemIdValue = int.MaxValue;
+	public const int MinWorkItemIdValue = 1;
 
-        if (!ProjectNameRegex.IsMatch(projectName))
-            return ValidationResult.Invalid("Project name contains invalid characters. Only alphanumeric, hyphens, underscores, periods, and spaces are allowed");
+	public static ValidationResult ValidateProjectName (string? projectName)
+	{
+		if (string.IsNullOrWhiteSpace (projectName)) {
+			return ValidationResult.Invalid ("Project name cannot be null or empty");
+		}
 
-        if (projectName.StartsWith(" ") || projectName.EndsWith(" "))
-            return ValidationResult.Invalid("Project name cannot start or end with spaces");
+		if (projectName.Length > MaxProjectNameLength) {
+			return ValidationResult.Invalid ($"Project name cannot exceed {MaxProjectNameLength} characters");
+		}
 
-        return ValidationResult.Valid();
-    }
+		if (projectName.Length < 2) {
+			return ValidationResult.Invalid ("Project name must be at least 2 characters long");
+		}
 
-    public static ValidationResult ValidateRepositoryId(string? repositoryId)
-    {
-        if (string.IsNullOrWhiteSpace(repositoryId))
-            return ValidationResult.Invalid("Repository ID cannot be null or empty");
+		if (!ProjectNameRegex.IsMatch (projectName)) {
+			return ValidationResult.Invalid ("Project name contains invalid characters. Only alphanumeric, hyphens, underscores, periods, and spaces are allowed");
+		}
 
-        // Repository ID can be either a GUID or a repository name
-        if (Guid.TryParse(repositoryId, out _))
-            return ValidationResult.Valid();
+		if (projectName.StartsWith (" ") || projectName.EndsWith (" ")) {
+			return ValidationResult.Invalid ("Project name cannot start or end with spaces");
+		}
 
-        // Validate as repository name (similar to project name rules)
-        return ValidateProjectName(repositoryId);
-    }
+		return ValidationResult.Valid ();
+	}
 
-    public static ValidationResult ValidateBranchName(string? branchName)
-    {
-        if (string.IsNullOrWhiteSpace(branchName))
-            return ValidationResult.Invalid("Branch name cannot be null or empty");
+	public static ValidationResult ValidateRepositoryId (string? repositoryId)
+	{
+		if (string.IsNullOrWhiteSpace (repositoryId)) {
+			return ValidationResult.Invalid ("Repository ID cannot be null or empty");
+		}
 
-        if (branchName.Length > MaxBranchNameLength)
-            return ValidationResult.Invalid($"Branch name cannot exceed {MaxBranchNameLength} characters");
+		// Repository ID can be either a GUID or a repository name
+		if (Guid.TryParse (repositoryId, out _)) {
+			return ValidationResult.Valid ();
+		}
 
-        // Remove refs/heads/ prefix if present
-        var cleanBranchName = branchName.StartsWith("refs/heads/") 
-            ? branchName.Substring("refs/heads/".Length) 
-            : branchName;
+		// Validate as repository name (similar to project name rules)
+		return ValidateProjectName (repositoryId);
+	}
 
-        if (!BranchNameRegex.IsMatch(cleanBranchName))
-            return ValidationResult.Invalid("Branch name contains invalid characters");
+	public static ValidationResult ValidateBranchName (string? branchName)
+	{
+		if (string.IsNullOrWhiteSpace (branchName)) {
+			return ValidationResult.Invalid ("Branch name cannot be null or empty");
+		}
 
-        if (cleanBranchName.Contains(".."))
-            return ValidationResult.Invalid("Branch name cannot contain consecutive dots");
+		if (branchName.Length > MaxBranchNameLength) {
+			return ValidationResult.Invalid ($"Branch name cannot exceed {MaxBranchNameLength} characters");
+		}
 
-        return ValidationResult.Valid();
-    }
+		// Remove refs/heads/ prefix if present
+		var cleanBranchName = branchName.StartsWith ("refs/heads/")
+			? branchName.Substring ("refs/heads/".Length)
+			: branchName;
 
-    public static ValidationResult ValidateFilePath(string? filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath))
-            return ValidationResult.Invalid("File path cannot be null or empty");
+		if (!BranchNameRegex.IsMatch (cleanBranchName)) {
+			return ValidationResult.Invalid ("Branch name contains invalid characters");
+		}
 
-        if (filePath.Length > MaxFilePathLength)
-            return ValidationResult.Invalid($"File path cannot exceed {MaxFilePathLength} characters");
+		if (cleanBranchName.Contains ("..")) {
+			return ValidationResult.Invalid ("Branch name cannot contain consecutive dots");
+		}
 
-        // Check for forbidden sequences
-        foreach (var forbiddenSequence in ForbiddenPathSequences)
-        {
-            if (filePath.Contains(forbiddenSequence))
-                return ValidationResult.Invalid($"File path contains forbidden sequence: {forbiddenSequence}");
-        }
+		return ValidationResult.Valid ();
+	}
 
-        // Check for path traversal attempts
-        var normalizedPath = Path.GetFullPath(filePath);
-        if (!normalizedPath.StartsWith(filePath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
-            return ValidationResult.Invalid("File path contains path traversal sequences");
+	public static ValidationResult ValidateFilePath (string? filePath)
+	{
+		if (string.IsNullOrWhiteSpace (filePath)) {
+			return ValidationResult.Invalid ("File path cannot be null or empty");
+		}
 
-        if (!FilePathRegex.IsMatch(filePath))
-            return ValidationResult.Invalid("File path contains invalid characters");
+		if (filePath.Length > MaxFilePathLength) {
+			return ValidationResult.Invalid ($"File path cannot exceed {MaxFilePathLength} characters");
+		}
 
-        return ValidationResult.Valid();
-    }
+		// Check for forbidden sequences
+		foreach (var forbiddenSequence in ForbiddenPathSequences) {
+			if (filePath.Contains (forbiddenSequence)) {
+				return ValidationResult.Invalid ($"File path contains forbidden sequence: {forbiddenSequence}");
+			}
+		}
 
-    public static ValidationResult ValidateWorkItemId(int workItemId)
-    {
-        if (workItemId < MinWorkItemIdValue || workItemId > MaxWorkItemIdValue)
-            return ValidationResult.Invalid($"Work item ID must be between {MinWorkItemIdValue} and {MaxWorkItemIdValue}");
+		// Check for path traversal attempts
+		var normalizedPath = Path.GetFullPath (filePath);
+		if (!normalizedPath.StartsWith (filePath.Replace ('\\', '/'), StringComparison.OrdinalIgnoreCase)) {
+			return ValidationResult.Invalid ("File path contains path traversal sequences");
+		}
 
-        return ValidationResult.Valid();
-    }
+		if (!FilePathRegex.IsMatch (filePath)) {
+			return ValidationResult.Invalid ("File path contains invalid characters");
+		}
 
-    public static ValidationResult ValidateLimit(int limit, int maxLimit = 1000)
-    {
-        if (limit < 1)
-            return ValidationResult.Invalid("Limit must be at least 1");
+		return ValidationResult.Valid ();
+	}
 
-        if (limit > maxLimit)
-            return ValidationResult.Invalid($"Limit cannot exceed {maxLimit}");
+	public static ValidationResult ValidateWorkItemId (int workItemId)
+	{
+		if (workItemId < MinWorkItemIdValue || workItemId > MaxWorkItemIdValue) {
+			return ValidationResult.Invalid ($"Work item ID must be between {MinWorkItemIdValue} and {MaxWorkItemIdValue}");
+		}
 
-        return ValidationResult.Valid();
-    }
+		return ValidationResult.Valid ();
+	}
 
-    public static ValidationResult ValidateWiql(string? wiql)
-    {
-        if (string.IsNullOrWhiteSpace(wiql))
-            return ValidationResult.Invalid("WIQL query cannot be null or empty");
+	public static ValidationResult ValidateLimit (int limit, int maxLimit = 1000)
+	{
+		if (limit < 1) {
+			return ValidationResult.Invalid ("Limit must be at least 1");
+		}
 
-        // Basic WIQL validation - prevent obvious injection attempts
-        var dangerousKeywords = new[] { "DROP", "DELETE", "INSERT", "UPDATE", "EXEC", "EXECUTE", "SP_", "XP_" };
-        var upperWiql = wiql.ToUpperInvariant();
+		if (limit > maxLimit) {
+			return ValidationResult.Invalid ($"Limit cannot exceed {maxLimit}");
+		}
 
-        foreach (var keyword in dangerousKeywords)
-        {
-            if (upperWiql.Contains(keyword))
-                return ValidationResult.Invalid($"WIQL query contains potentially dangerous keyword: {keyword}");
-        }
+		return ValidationResult.Valid ();
+	}
 
-        // Ensure it starts with SELECT
-        if (!upperWiql.TrimStart().StartsWith("SELECT"))
-            return ValidationResult.Invalid("WIQL query must start with SELECT");
+	public static ValidationResult ValidateWiql (string? wiql)
+	{
+		if (string.IsNullOrWhiteSpace (wiql)) {
+			return ValidationResult.Invalid ("WIQL query cannot be null or empty");
+		}
 
-        return ValidationResult.Valid();
-    }
+		// Basic WIQL validation - prevent obvious injection attempts
+		var dangerousKeywords = new[] { "DROP", "DELETE", "INSERT", "UPDATE", "EXEC", "EXECUTE", "SP_", "XP_" };
+		var upperWiql = wiql.ToUpperInvariant ();
 
-    public static ValidationResult ValidateOrganizationUrl(string? organizationUrl)
-    {
-        if (string.IsNullOrWhiteSpace(organizationUrl))
-            return ValidationResult.Invalid("Organization URL cannot be null or empty");
+		foreach (var keyword in dangerousKeywords) {
+			if (upperWiql.Contains (keyword)) {
+				return ValidationResult.Invalid ($"WIQL query contains potentially dangerous keyword: {keyword}");
+			}
+		}
 
-        if (!Uri.TryCreate(organizationUrl, UriKind.Absolute, out var uri))
-            return ValidationResult.Invalid("Organization URL must be a valid absolute URL");
+		// Ensure it starts with SELECT
+		if (!upperWiql.TrimStart ().StartsWith ("SELECT")) {
+			return ValidationResult.Invalid ("WIQL query must start with SELECT");
+		}
 
-        if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
-            return ValidationResult.Invalid("Organization URL must use HTTPS");
+		return ValidationResult.Valid ();
+	}
 
-        if (!uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase) &&
-            !uri.Host.EndsWith(".visualstudio.com", StringComparison.OrdinalIgnoreCase))
-            return ValidationResult.Invalid("Organization URL must be a valid Azure DevOps URL");
+	public static ValidationResult ValidateOrganizationUrl (string? organizationUrl)
+	{
+		if (string.IsNullOrWhiteSpace (organizationUrl)) {
+			return ValidationResult.Invalid ("Organization URL cannot be null or empty");
+		}
 
-        return ValidationResult.Valid();
-    }
+		if (!Uri.TryCreate (organizationUrl, UriKind.Absolute, out var uri)) {
+			return ValidationResult.Invalid ("Organization URL must be a valid absolute URL");
+		}
 
-    public static ValidationResult ValidatePersonalAccessToken(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-            return ValidationResult.Invalid("Personal Access Token cannot be null or empty");
+		if (!uri.Scheme.Equals ("https", StringComparison.OrdinalIgnoreCase)) {
+			return ValidationResult.Invalid ("Organization URL must use HTTPS");
+		}
 
-        if (token.Length < 10)
-            return ValidationResult.Invalid("Personal Access Token appears to be too short");
+		if (!uri.Host.Equals ("dev.azure.com", StringComparison.OrdinalIgnoreCase) &&
+			!uri.Host.EndsWith (".visualstudio.com", StringComparison.OrdinalIgnoreCase)) {
+			return ValidationResult.Invalid ("Organization URL must be a valid Azure DevOps URL");
+		}
 
-        if (token.Length > 2048)
-            return ValidationResult.Invalid("Personal Access Token appears to be too long");
+		return ValidationResult.Valid ();
+	}
 
-        // Basic format check - Azure DevOps PATs are typically base64-ish
-        if (!Regex.IsMatch(token, @"^[a-zA-Z0-9+/=]+$"))
-            return ValidationResult.Invalid("Personal Access Token contains invalid characters");
+	public static ValidationResult ValidatePersonalAccessToken (string? token)
+	{
+		if (string.IsNullOrWhiteSpace (token)) {
+			return ValidationResult.Invalid ("Personal Access Token cannot be null or empty");
+		}
 
-        return ValidationResult.Valid();
-    }
+		if (token.Length < 10) {
+			return ValidationResult.Invalid ("Personal Access Token appears to be too short");
+		}
+
+		if (token.Length > 2048) {
+			return ValidationResult.Invalid ("Personal Access Token appears to be too long");
+		}
+
+		// Basic format check - Azure DevOps PATs are typically base64-ish
+		if (!Regex.IsMatch (token, @"^[a-zA-Z0-9+/=]+$")) {
+			return ValidationResult.Invalid ("Personal Access Token contains invalid characters");
+		}
+
+		return ValidationResult.Valid ();
+	}
 }
 
 public class ValidationResult
 {
-    public bool IsValid { get; init; }
-    public string? ErrorMessage { get; init; }
+	public bool IsValid { get; init; }
+	public string? ErrorMessage { get; init; }
 
-    private ValidationResult() { }
+	ValidationResult () { }
 
-    public static ValidationResult Valid() => new() { IsValid = true };
+	public static ValidationResult Valid () => new () { IsValid = true };
 
-    public static ValidationResult Invalid(string errorMessage) => new() 
-    { 
-        IsValid = false, 
-        ErrorMessage = errorMessage ?? "Validation failed"
-    };
+	public static ValidationResult Invalid (string errorMessage) => new () {
+		IsValid = false,
+		ErrorMessage = errorMessage ?? "Validation failed"
+	};
 
-    public void ThrowIfInvalid()
-    {
-        if (!IsValid)
-            throw new ValidationException(ErrorMessage ?? "Validation failed");
-    }
+	public void ThrowIfInvalid ()
+	{
+		if (!IsValid) {
+			throw new ValidationException (ErrorMessage ?? "Validation failed");
+		}
+	}
 }
 
 public class ValidationException : ArgumentException
 {
-    public ValidationException(string message) : base(message) { }
-    public ValidationException(string message, Exception innerException) : base(message, innerException) { }
-    public ValidationException(string message, string paramName) : base(message, paramName) { }
+	public ValidationException (string message) : base (message) { }
+	public ValidationException (string message, Exception innerException) : base (message, innerException) { }
+	public ValidationException (string message, string paramName) : base (message, paramName) { }
 }
