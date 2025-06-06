@@ -5,6 +5,24 @@
   </PropertyGroup>  <ItemGroup>
     <PackageVersion Include="Microsoft.TeamFoundationServer.Client" Version="19.225.1" />
     <PackageVersion Include="Microsoft.VisualStudio.Services.Client" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.TeamFoundation.Build.WebApi" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.TeamFoundation.Test.WebApi" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.TeamFoundation.Wiki.WebApi" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.VisualStudio.Services.Search.WebApi" Version="19.225.1" />
     <PackageVersion Include="ModelContextProtocol" Version="0.2.0-preview.3" />
+    
+    <!-- Testing packages -->
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="FluentAssertions" Version="7.0.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    
+    <!-- Caching and performance packages -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.0" />
+    
+    <!-- Monitoring and observability -->
+    <PackageVersion Include="Sentry.AspNetCore" Version="4.18.0" />
+    <PackageVersion Include="Sentry.Extensions.Logging" Version="4.18.0" />
   </ItemGroup>
 </Project>

@@ -28,6 +28,9 @@ The server uses Microsoft's Azure DevOps REST API client libraries and the Model
 
 ### Development
 ```bash
+# Quick setup for new developers
+./scripts/dev-setup.ps1
+
 # Restore dependencies
 dotnet restore
 
@@ -39,6 +42,21 @@ dotnet run --project src/AzureDevOps.MCP
 
 # Build from solution root
 dotnet build AzureDevOps.MCP.slnx
+```
+
+### Testing & Quality
+```bash
+# Run all tests
+dotnet test
+
+# Run tests with coverage
+./scripts/test-coverage.ps1
+
+# Run tests with coverage and open report
+./scripts/test-coverage.ps1 -OpenReport
+
+# Run performance benchmarks
+dotnet test --filter "FullyQualifiedName~PerformanceBenchmarks"
 ```
 
 ### Docker

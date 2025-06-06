@@ -4,6 +4,13 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.Wiki.WebApi;
+using Microsoft.TeamFoundation.Wiki.WebApi.Contracts;
+using Microsoft.VisualStudio.Services.Search.WebApi;
+using Microsoft.VisualStudio.Services.Search.WebApi.Contracts.Code;
+using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
 namespace AzureDevOps.MCP.Services;
 
@@ -152,5 +159,219 @@ public class AzureDevOpsService : IAzureDevOpsService
 	{
 		var connection = await GetConnectionAsync();
 		var gitClient = connection.GetClient<GitHttpClient>();        return await gitClient.GetRefsAsync(repositoryId, filter: "tags/");
+	}
+	
+	public async Task<Comment> AddPullRequestCommentAsync(string projectName, string repositoryId, int pullRequestId, string content, int? parentCommentId = null)
+	{
+		var connection = await GetConnectionAsync();
+		var gitClient = connection.GetClient<GitHttpClient>();
+		
+		var comment = new Comment
+		{
+			Content = content,
+			ParentCommentId = parentCommentId ?? 0,
+			CommentType = CommentType.Text
+		};
+		
+		var thread = new GitPullRequestCommentThread
+		{
+			Comments = new List<Comment> { comment },
+			Status = CommentThreadStatus.Active
+		};
+		
+		var createdThread = await gitClient.CreateThreadAsync(thread, repositoryId, pullRequestId, projectName);
+		return createdThread.Comments.First();
+	}
+	
+	public async Task<GitPullRequest> CreateDraftPullRequestAsync(string projectName, string repositoryId, string sourceBranch, string targetBranch, string title, string description)
+	{
+		var connection = await GetConnectionAsync();
+		var gitClient = connection.GetClient<GitHttpClient>();
+		
+		var pullRequest = new GitPullRequest
+		{
+			SourceRefName = $"refs/heads/{sourceBranch}",
+			TargetRefName = $"refs/heads/{targetBranch}",
+			Title = title,
+			Description = description,
+			IsDraft = true
+		};
+		
+		return await gitClient.CreatePullRequestAsync(pullRequest, repositoryId, projectName);
+	}
+	
+	public async Task<WorkItem> UpdateWorkItemTagsAsync(int workItemId, string[] tagsToAdd, string[] tagsToRemove)
+	{
+		var connection = await GetConnectionAsync();
+		var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
+		
+		// Get current work item to read existing tags
+		var workItem = await witClient.GetWorkItemAsync(workItemId);
+		if (workItem == null)
+		{
+			throw new InvalidOperationException($"Work item {workItemId} not found");
+		}
+		
+		// Get current tags
+		var currentTags = new HashSet<string>();
+		if (workItem.Fields.ContainsKey("System.Tags") && workItem.Fields["System.Tags"] is string tagsString && !string.IsNullOrEmpty(tagsString))
+		{
+			currentTags = tagsString.Split(';', StringSplitOptions.RemoveEmptyEntries)
+				.Select(t => t.Trim())
+				.ToHashSet(StringComparer.OrdinalIgnoreCase);
+		}
+		
+		// Add new tags
+		foreach (var tag in tagsToAdd)
+		{
+			if (!string.IsNullOrWhiteSpace(tag))
+			{
+				currentTags.Add(tag.Trim());
+			}
+		}
+		
+		// Remove specified tags
+		foreach (var tag in tagsToRemove)
+		{
+			if (!string.IsNullOrWhiteSpace(tag))
+			{
+				currentTags.Remove(tag.Trim());
+			}
+		}
+		
+		// Create patch document
+		var patchDocument = new JsonPatchDocument();
+		var newTagsString = string.Join("; ", currentTags.OrderBy(t => t));
+		
+		patchDocument.Add(new JsonPatchOperation
+		{
+			Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
+			Path = "/fields/System.Tags",
+			Value = newTagsString
+		});
+		
+		return await witClient.UpdateWorkItemAsync(patchDocument, workItemId);
+	}
+	
+	// Search operations
+	public async Task<IEnumerable<CodeSearchResult>> SearchCodeAsync(string searchText, string? projectName = null, string? repositoryName = null, int limit = 50)
+	{
+		var connection = await GetConnectionAsync();
+		var searchClient = await connection.GetClientAsync<SearchHttpClient>();
+		
+		var request = new CodeSearchRequest
+		{
+			SearchText = searchText,
+			Filters = new Dictionary<string, IEnumerable<string>>()
+		};
+		
+		if (!string.IsNullOrEmpty(projectName))
+		{
+			request.Filters["Project"] = new[] { projectName };
+		}
+		
+		if (!string.IsNullOrEmpty(repositoryName))
+		{
+			request.Filters["Repository"] = new[] { repositoryName };
+		}
+		
+		request.Top = limit;
+		request.Skip = 0;
+		
+		var response = await searchClient.FetchCodeSearchResultsAsync(request);
+		
+		return response.Results.Select(r => new CodeSearchResult
+		{
+			FileName = r.FileName,
+			FilePath = r.Path,
+			Repository = r.Repository?.Name ?? string.Empty,
+			Project = r.Project?.Name ?? string.Empty,
+			Matches = r.Matches?.ToDictionary(m => m.CharOffset, m => m.Line) ?? new Dictionary<int, string>()
+		});
+	}
+	
+	// Wiki operations
+	public async Task<IEnumerable<WikiReference>> GetWikisAsync(string projectName)
+	{
+		var connection = await GetConnectionAsync();
+		var wikiClient = await connection.GetClientAsync<WikiHttpClient>();
+		
+		var wikis = await wikiClient.GetAllWikisAsync(projectName);
+		
+		return wikis.Select(w => new WikiReference
+		{
+			Id = w.Id,
+			Name = w.Name,
+			Type = w.Type.ToString(),
+			Url = w.RemoteUrl
+		});
+	}
+	
+	public async Task<WikiPage?> GetWikiPageAsync(string projectName, string wikiIdentifier, string path)
+	{
+		var connection = await GetConnectionAsync();
+		var wikiClient = await connection.GetClientAsync<WikiHttpClient>();
+		
+		try
+		{
+			var page = await wikiClient.GetPageAsync(projectName, wikiIdentifier, path);
+			var pageData = await wikiClient.GetPageTextAsync(projectName, wikiIdentifier, path);
+			
+			return new WikiPage
+			{
+				Path = page.Path,
+				Content = pageData,
+				Order = page.Order,
+				IsParentPage = page.IsParentPage
+			};
+		}
+		catch (VssServiceException)
+		{
+			return null;
+		}
+	}
+	
+	// Build and test operations
+	public async Task<IEnumerable<Build>> GetBuildsAsync(string projectName, int? definitionId = null, int limit = 20)
+	{
+		var connection = await GetConnectionAsync();
+		var buildClient = await connection.GetClientAsync<BuildHttpClient>();
+		
+		var definitions = definitionId.HasValue ? new[] { definitionId.Value } : null;
+		
+		return await buildClient.GetBuildsAsync(projectName, definitions: definitions, top: limit);
+	}
+	
+	public async Task<IEnumerable<TestRun>> GetTestRunsAsync(string projectName, int limit = 20)
+	{
+		var connection = await GetConnectionAsync();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
+		
+		return await testClient.GetTestRunsAsync(projectName, top: limit);
+	}
+	
+	public async Task<IEnumerable<TestCaseResult>> GetTestResultsAsync(string projectName, int runId)
+	{
+		var connection = await GetConnectionAsync();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
+		
+		return await testClient.GetTestResultsAsync(projectName, runId);
+	}
+	
+	// Artifact operations
+	public async Task<Stream> DownloadBuildArtifactAsync(string projectName, int buildId, string artifactName)
+	{
+		var connection = await GetConnectionAsync();
+		var buildClient = await connection.GetClientAsync<BuildHttpClient>();
+		
+		var artifact = await buildClient.GetArtifactAsync(projectName, buildId, artifactName);
+		
+		if (artifact?.Resource?.DownloadUrl == null)
+		{
+			throw new InvalidOperationException($"Artifact '{artifactName}' not found or has no download URL");
+		}
+		
+		var httpClient = new HttpClient();
+		return await httpClient.GetStreamAsync(artifact.Resource.DownloadUrl);
 	}
 }
