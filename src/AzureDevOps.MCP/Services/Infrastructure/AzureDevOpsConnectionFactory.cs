@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AzureDevOps.MCP.Common;
+using AzureDevOps.MCP.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;

@@ -64,7 +64,7 @@ public class PerformanceServiceTests
 		metrics.TotalOperations.Should ().Be (1);
 		metrics.Operations.Should ().ContainKey (operationName);
 		metrics.Operations[operationName].Count.Should ().Be (1);
-		metrics.Operations[operationName].MinDurationMs.Should ().BeGreaterOrEqualTo (0);
+		metrics.Operations[operationName].MinDurationMs.Should ().BeGreaterThanOrEqualTo (0);
 	}
 
 	[TestMethod]

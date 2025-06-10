@@ -2,52 +2,53 @@
   <PropertyGroup>
     <!-- Enable central package management, https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>  <ItemGroup>
+  </PropertyGroup>
+  <ItemGroup>
     <PackageVersion Include="Microsoft.TeamFoundationServer.Client" Version="19.225.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="17.14.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.7.2" />
     <PackageVersion Include="Microsoft.VisualStudio.Services.Client" Version="19.225.1" />
     <PackageVersion Include="ModelContextProtocol" Version="0.2.0-preview.3" />
-    
     <!-- Testing packages -->
     <PackageVersion Include="Moq" Version="4.20.72" />
-    <PackageVersion Include="FluentAssertions" Version="7.0.0" />
-    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    
+    <PackageVersion Include="FluentAssertions" Version="8.3.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
     <!-- Caching and performance packages -->
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.5" />
+    <PackageVersion Include="MSTest" Version="3.9.2" />
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.0" />
-    
     <!-- Monitoring and observability -->
-    <PackageVersion Include="Sentry.AspNetCore" Version="5.0.0" />
-    <PackageVersion Include="Sentry.Extensions.Logging" Version="5.0.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.10.0" />
-    
-    
+    <PackageVersion Include="Sentry.AspNetCore" Version="5.10.0" />
+    <PackageVersion Include="Sentry.Extensions.Logging" Version="5.10.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
     <!-- Additional caching packages -->
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.0" />
-    
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.5" />
     <!-- Security packages -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.AzureKeyVault" Version="3.1.24" />
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
-    <PackageVersion Include="Azure.Identity" Version="1.13.1" />
-    
+    <PackageVersion Include="Azure.Identity" Version="1.14.0" />
     <!-- Health checks -->
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.UI" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.UI.InMemory.Storage" Version="9.0.0" />
-    
     <!-- .NET 9 performance features -->
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
     <PackageVersion Include="System.Threading.Channels" Version="9.0.0" />
     <PackageVersion Include="System.Collections.Immutable" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="9.0.0" />
-    
     <!-- Validation -->
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageVersion Include="FluentValidation" Version="12.0.0" />
+    <PackageVersion Include="FluentValidation.AspNetCore" Version="11.3.1" />
   </ItemGroup>
 </Project>

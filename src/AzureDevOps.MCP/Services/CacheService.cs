@@ -16,7 +16,7 @@ public class CacheService : ICacheService
 		_logger = logger;
 	}
 
-	public Task<T?> GetAsync<T> (string key) where T : class
+	public Task<T?> GetAsync<T> (string key, CancellationToken cancellationToken = default) where T : class
 	{
 		try {
 			if (_cache.TryGetValue (key, out T? value)) {
@@ -32,7 +32,7 @@ public class CacheService : ICacheService
 		}
 	}
 
-	public Task SetAsync<T> (string key, T value, TimeSpan? expiration = null) where T : class
+	public Task SetAsync<T> (string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default) where T : class
 	{
 		try {
 			var options = new MemoryCacheEntryOptions ();
@@ -64,7 +64,7 @@ public class CacheService : ICacheService
 		}
 	}
 
-	public Task RemoveAsync (string key)
+	public Task RemoveAsync (string key, CancellationToken cancellationToken = default)
 	{
 		try {
 			_cache.Remove (key);
@@ -81,19 +81,19 @@ public class CacheService : ICacheService
 		}
 	}
 
-	public async Task<T> GetOrSetAsync<T> (string key, Func<Task<T>> factory, TimeSpan? expiration = null) where T : class
+	public async Task<T> GetOrSetAsync<T> (string key, Func<CancellationToken, Task<T>> factory, TimeSpan? expiration = null, CancellationToken cancellationToken = default) where T : class
 	{
 		var cached = await GetAsync<T> (key);
 		if (cached != null) {
 			return cached;
 		}
 
-		var value = await factory ();
+		var value = await factory (cancellationToken);
 		await SetAsync (key, value, expiration);
 		return value;
 	}
 
-	public void Clear ()
+	public Task ClearAsync (CancellationToken cancellationToken = default)
 	{
 		lock (_keysLock) {
 			foreach (var key in _keys) {
@@ -103,6 +103,36 @@ public class CacheService : ICacheService
 		}
 
 		_logger.LogInformation ("Cache cleared");
+		return Task.CompletedTask;
+	}
+
+	public Task RemoveByPatternAsync (string pattern, CancellationToken cancellationToken = default)
+	{
+		try {
+			lock (_keysLock) {
+				var keysToRemove = _keys.Where(k => k.Contains(pattern)).ToList();
+				foreach (var key in keysToRemove) {
+					_cache.Remove(key);
+					_keys.Remove(key);
+				}
+			}
+			_logger.LogDebug("Removed keys matching pattern: {Pattern}", pattern);
+			return Task.CompletedTask;
+		} catch (Exception ex) {
+			_logger.LogError(ex, "Error removing keys matching pattern {Pattern} from cache", pattern);
+			return Task.CompletedTask;
+		}
+	}
+
+	public Task<bool> ExistsAsync (string key, CancellationToken cancellationToken = default)
+	{
+		try {
+			var exists = _cache.TryGetValue(key, out _);
+			return Task.FromResult(exists);
+		} catch (Exception ex) {
+			_logger.LogError(ex, "Error checking existence of key {Key} in cache", key);
+			return Task.FromResult(false);
+		}
 	}
 
 	public CacheStatistics GetStatistics ()

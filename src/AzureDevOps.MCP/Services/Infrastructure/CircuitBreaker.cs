@@ -34,6 +34,22 @@ public class CircuitBreaker : ICircuitBreaker
 		}
 	}
 
+	public int FailureCount {
+		get {
+			lock (_lock) {
+				return _failureCount;
+			}
+		}
+	}
+
+	public DateTime? LastFailureTime {
+		get {
+			lock (_lock) {
+				return _lastFailureTime == default ? null : _lastFailureTime;
+			}
+		}
+	}
+
 	public async Task<T> ExecuteAsync<T> (Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default)
 	{
 		if (State == CircuitBreakerState.Open) {

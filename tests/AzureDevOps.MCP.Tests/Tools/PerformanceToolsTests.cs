@@ -100,7 +100,8 @@ public class PerformanceToolsTests
 	{
 		// Arrange
 		_mockCacheService
-			.Setup (x => x.Clear ())
+			.Setup (x => x.ClearAsync (It.IsAny<CancellationToken>()))
+			.Returns(Task.CompletedTask)
 			.Verifiable ();
 
 		// Act
@@ -108,7 +109,7 @@ public class PerformanceToolsTests
 
 		// Assert
 		result.Should ().NotBeNull ();
-		_mockCacheService.Verify (x => x.Clear (), Times.Once);
+		_mockCacheService.Verify (x => x.ClearAsync (It.IsAny<CancellationToken>()), Times.Once);
 	}
 
 	[TestMethod]
@@ -116,8 +117,8 @@ public class PerformanceToolsTests
 	{
 		// Arrange
 		_mockCacheService
-			.Setup (x => x.Clear ())
-			.Throws (new InvalidOperationException ("Cache clear error"));
+			.Setup (x => x.ClearAsync (It.IsAny<CancellationToken>()))
+			.ThrowsAsync (new InvalidOperationException ("Cache clear error"));
 
 		// Act & Assert
 		var exception = await Assert.ThrowsExceptionAsync<InvalidOperationException> (
@@ -154,7 +155,7 @@ public class PerformanceToolsTests
 		// Note: Exact timing may vary slightly due to test execution time
 		var uptime = DateTime.UtcNow - startTime;
 		uptime.Hours.Should ().Be (3);
-		uptime.Minutes.Should ().BeGreaterOrEqualTo (24); // Allow for slight timing differences
+		uptime.Minutes.Should ().BeGreaterThanOrEqualTo (24); // Allow for slight timing differences
 	}
 
 	[TestMethod]

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  azuredevops-mcp-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        BUILD_CONFIGURATION: Debug
+        VERSION: dev
+    image: azuredevops-mcp:dev
+    container_name: azuredevops-mcp-dev
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000;https://+:5001
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - AZDO_ORGANIZATIONURL=${AZDO_ORGANIZATIONURL}
+      - AZDO_PERSONALACCESSTOKEN=${AZDO_PERSONALACCESSTOKEN}
+    env_file:
+      - .env.development
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/src/src:ro
+      - ./tests:/src/tests:ro
+      - ./Directory.Packages.props:/src/Directory.Packages.props:ro
+      - ./Directory.Build.props:/src/Directory.Build.props:ro
+      - ./Directory.Build.targets:/src/Directory.Build.targets:ro
+      - ./nuget.config:/src/nuget.config:ro
+      - ./AzureDevOps.MCP.slnx:/src/AzureDevOps.MCP.slnx:ro
+      # Mount development data
+      - ./dev-logs:/app/logs:rw
+      - ./dev-data:/app/data:rw
+    networks:
+      - azuredevops-mcp-dev-network
+    labels:
+      - "com.azure-devops-mcp.service=main"
+      - "com.azure-devops-mcp.environment=development"
+
+  # Redis for development
+  redis-dev:
+    image: redis:7-alpine
+    container_name: azuredevops-mcp-redis-dev
+    ports:
+      - "6380:6379"
+    command: redis-server --requirepass devpassword
+    networks:
+      - azuredevops-mcp-dev-network
+    labels:
+      - "com.azure-devops-mcp.service=redis"
+      - "com.azure-devops-mcp.environment=development"
+
+networks:
+  azuredevops-mcp-dev-network:
+    driver: bridge
+    name: azuredevops-mcp-dev-network

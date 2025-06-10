@@ -8,7 +8,16 @@
       "Bash(rg:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(true)",
+      "Bash(dotnet nuget locals:*)",
+      "Bash(mv:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(sed:*)",
+      "Bash(dotnet run:*)"
     ],
     "deny": []
   }

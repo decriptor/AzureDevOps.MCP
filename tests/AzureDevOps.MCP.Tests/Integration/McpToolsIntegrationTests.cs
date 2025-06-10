@@ -37,7 +37,13 @@ public class McpToolsIntegrationTests
 			EnableAuditLogging = true
 		};
 
-		services.Configure<AzureDevOpsConfiguration> (_ => config);
+		services.Configure<AzureDevOpsConfiguration> (options => {
+			options.OrganizationUrl = config.OrganizationUrl;
+			options.PersonalAccessToken = config.PersonalAccessToken;
+			options.EnabledWriteOperations = config.EnabledWriteOperations;
+			options.RequireConfirmation = config.RequireConfirmation;
+			options.EnableAuditLogging = config.EnableAuditLogging;
+		});
 
 		// Add services
 		services.AddMemoryCache ();

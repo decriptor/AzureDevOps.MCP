@@ -69,15 +69,15 @@ public class PerformanceTools
 
 	[McpServerTool (Name = "clear_cache", ReadOnly = false, OpenWorld = false)]
 	[Description ("Clears all cached data to force fresh API calls")]
-	public Task<object> ClearCacheAsync ()
+	public async Task<object> ClearCacheAsync ()
 	{
 		try {
-			_cacheService.Clear ();
-			return Task.FromResult<object> (new {
+			await _cacheService.ClearAsync ();
+			return new {
 				success = true,
 				message = "Cache cleared successfully",
 				timestamp = DateTime.UtcNow
-			});
+			};
 		} catch (Exception ex) {
 			_logger.LogError (ex, "Error clearing cache");
 			throw new InvalidOperationException ($"Failed to clear cache: {ex.Message}", ex);

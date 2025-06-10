@@ -60,7 +60,7 @@ public class CacheServiceTests
 		var factoryCalled = false;
 
 		// Act
-		var result = await _cacheService.GetOrSetAsync (key, () => {
+		var result = await _cacheService.GetOrSetAsync<string> (key, (ct) => {
 			factoryCalled = true;
 			return Task.FromResult (value);
 		});
@@ -85,7 +85,7 @@ public class CacheServiceTests
 		await _cacheService.SetAsync (key, cachedValue);
 
 		// Act
-		var result = await _cacheService.GetOrSetAsync (key, () => {
+		var result = await _cacheService.GetOrSetAsync<string> (key, (ct) => {
 			factoryCalled = true;
 			return Task.FromResult (factoryValue);
 		});
@@ -113,7 +113,7 @@ public class CacheServiceTests
 	}
 
 	[TestMethod]
-	public void Clear_RemovesAllItemsFromCache ()
+	public async Task Clear_RemovesAllItemsFromCache ()
 	{
 		// Arrange
 		const string key1 = "test-key-1";
@@ -121,15 +121,15 @@ public class CacheServiceTests
 		const string value1 = "test-value-1";
 		const string value2 = "test-value-2";
 
-		_cacheService.SetAsync (key1, value1).Wait ();
-		_cacheService.SetAsync (key2, value2).Wait ();
+		await _cacheService.SetAsync (key1, value1);
+		await _cacheService.SetAsync (key2, value2);
 
 		// Act
-		_cacheService.Clear ();
+		await _cacheService.ClearAsync ();
 
 		// Assert
-		var result1 = _cacheService.GetAsync<string> (key1).Result;
-		var result2 = _cacheService.GetAsync<string> (key2).Result;
+		var result1 = await _cacheService.GetAsync<string> (key1);
+		var result2 = await _cacheService.GetAsync<string> (key2);
 
 		result1.Should ().BeNull ();
 		result2.Should ().BeNull ();

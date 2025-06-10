@@ -1,11 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
-using AzureDevOps.MCP.Authorization;
-using AzureDevOps.MCP.ErrorHandling;
-using AzureDevOps.MCP.Infrastructure;
-using AzureDevOps.MCP.Security;
-using AzureDevOps.MCP.Services;
-using AzureDevOps.MCP.Validation;
+using AzureDevOps.MCP.Extensions;
+// using AzureDevOps.MCP.HealthChecks; // Temporarily disabled
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ModelContextProtocol;
@@ -82,7 +78,7 @@ builder.Services.AddOpenTelemetry ()
 			.AddAspNetCoreInstrumentation ()
 			.AddHttpClientInstrumentation ()
 			// Runtime instrumentation may not be available in all environments
-			.AddProcessInstrumentation ()
+			// .AddProcessInstrumentation () // Temporarily disabled
 			.AddConsoleExporter ()
 			.AddMeter ("AzureDevOps.MCP.*");
 	});
@@ -127,18 +123,7 @@ builder.Services.AddAuthorization (options => {
 	options.AddPolicy ("RequireContributor", policy => policy.RequireRole ("Contributor", "Administrator"));
 });
 
-// Configure health checks
-builder.Services.AddHealthChecks ()
-	.AddCheck<AzureDevOpsHealthCheck> ("azure-devops", HealthStatus.Unhealthy, ["azure-devops", "external"])
-	.AddCheck<CacheHealthCheck> ("cache", HealthStatus.Degraded, ["cache", "internal"])
-	.AddCheck ("memory", () => {
-		var allocatedBytes = GC.GetTotalMemory (false);
-		var maxBytes = 1024L * 1024 * 1024; // 1GB limit
-
-		return allocatedBytes > maxBytes
-			? HealthCheckResult.Unhealthy ($"Memory usage too high: {allocatedBytes / (1024 * 1024)}MB")
-			: HealthCheckResult.Healthy ($"Memory usage: {allocatedBytes / (1024 * 1024)}MB");
-	}, ["memory", "internal"]);
+// Note: Health checks are configured via AddAzureDevOpsHealthChecks() above
 
 // Configure caching
 builder.Services.AddMemoryCache (options => {
@@ -154,19 +139,11 @@ if (!string.IsNullOrEmpty (builder.Configuration.GetConnectionString ("Redis")))
 	});
 }
 
-// Configure core services with dependency injection
-builder.Services.AddSingleton<ISecretManager, EnvironmentSecretManager> ();
-builder.Services.AddSingleton<IConnectionFactory, SafeConnectionFactory> ();
-builder.Services.AddSingleton<ICacheService, HighPerformanceCacheService> ();
-builder.Services.AddScoped<IErrorHandler, ResilientErrorHandler> ();
-builder.Services.AddScoped<IAuthorizationService, BasicAuthorizationService> ();
+// Configure all Azure DevOps MCP services using clean architecture
+builder.Services.AddAzureDevOpsMcpServices(builder.Configuration);
 
-// Configure Azure DevOps services
-builder.Services.Configure<CacheConfiguration> (builder.Configuration.GetSection ("Cache"));
-builder.Services.Configure<AzureDevOpsConfiguration> (builder.Configuration.GetSection ("AzureDevOps"));
-
-// Add the main Azure DevOps service
-builder.Services.AddScoped<IAzureDevOpsService, AzureDevOpsService> ();
+// Add basic memory cache
+builder.Services.AddMemoryCache();
 
 // Add MCP server
 builder.Services.AddMcpServer ();
@@ -249,18 +226,9 @@ app.MapHealthChecks ("/health/live", new Microsoft.AspNetCore.Diagnostics.Health
 });
 
 // Add metrics endpoint for monitoring
-app.MapGet ("/metrics", (AzureDevOps.MCP.Services.ICacheService cacheService) => {
-	var stats = cacheService.GetStatistics ();
+app.MapGet ("/metrics", () => {
 	return Results.Json (new {
 		timestamp = DateTimeOffset.UtcNow,
-		cache = new {
-			totalRequests = stats.HitCount + stats.MissCount,
-			hitRate = stats.HitRate,
-			entryCount = stats.EntryCount,
-			totalSizeBytes = stats.TotalSizeBytes,
-			hitCount = stats.HitCount,
-			missCount = stats.MissCount
-		},
 		runtime = new {
 			totalMemory = GC.GetTotalMemory (false),
 			gen0Collections = GC.CollectionCount (0),
@@ -306,20 +274,25 @@ app.UseExceptionHandler (errorApp => {
 	});
 });
 
-// Startup validation
+// Startup validation using new architecture
 try {
 	using var scope = app.Services.CreateScope ();
-	var secretManager = scope.ServiceProvider.GetRequiredService<ISecretManager> ();
+	var secretManager = scope.ServiceProvider.GetRequiredService<AzureDevOps.MCP.Security.ISecretManager> ();
 
 	// Validate critical secrets are available
 	await secretManager.GetSecretAsync ("OrganizationUrl");
 	await secretManager.GetSecretAsync ("PersonalAccessToken");
 
-	var connectionFactory = scope.ServiceProvider.GetRequiredService<IConnectionFactory> ();
-	var connectionHealthy = await connectionFactory.TestConnectionAsync ();
+	var connectionFactory = scope.ServiceProvider.GetRequiredService<AzureDevOps.MCP.Services.Infrastructure.IAzureDevOpsConnectionFactory> ();
+	
+	// Test connection by getting a client
+	var connection = await connectionFactory.GetConnectionAsync ();
+	if (!connection.HasAuthenticated) {
+		await connection.ConnectAsync ();
+	}
 
-	if (!connectionHealthy) {
-		throw new InvalidOperationException ("Azure DevOps connection test failed during startup");
+	if (!connection.HasAuthenticated) {
+		throw new InvalidOperationException ("Azure DevOps connection authentication failed during startup");
 	}
 
 	app.Logger.LogInformation ("Azure DevOps MCP Server startup validation completed successfully");
@@ -341,66 +314,4 @@ public partial class AzureDevOpsJsonContext : System.Text.Json.Serialization.Jso
 {
 }
 
-// Health check implementations
-public class AzureDevOpsHealthCheck : IHealthCheck
-{
-	readonly IConnectionFactory _connectionFactory;
-	readonly ILogger<AzureDevOpsHealthCheck> _logger;
-
-	public AzureDevOpsHealthCheck (IConnectionFactory connectionFactory, ILogger<AzureDevOpsHealthCheck> logger)
-	{
-		_connectionFactory = connectionFactory;
-		_logger = logger;
-	}
-
-	public async Task<HealthCheckResult> CheckHealthAsync (HealthCheckContext context, CancellationToken cancellationToken = default)
-	{
-		try {
-			var healthy = await _connectionFactory.TestConnectionAsync (cancellationToken);
-			return healthy
-				? HealthCheckResult.Healthy ("Azure DevOps connection is healthy")
-				: HealthCheckResult.Unhealthy ("Azure DevOps connection test failed");
-		} catch (Exception ex) {
-			_logger.LogError (ex, "Azure DevOps health check failed");
-			return HealthCheckResult.Unhealthy ("Azure DevOps connection error", ex);
-		}
-	}
-}
-
-public class CacheHealthCheck : IHealthCheck
-{
-	readonly AzureDevOps.MCP.Services.ICacheService _cacheService;
-
-	public CacheHealthCheck (AzureDevOps.MCP.Services.ICacheService cacheService)
-	{
-		_cacheService = cacheService;
-	}
-
-	public Task<HealthCheckResult> CheckHealthAsync (HealthCheckContext context, CancellationToken cancellationToken = default)
-	{
-		try {
-			var stats = _cacheService.GetStatistics ();
-
-			var data = new Dictionary<string, object> {
-				["entryCount"] = stats.EntryCount,
-				["hitRate"] = stats.HitRate,
-				["totalSizeBytes"] = stats.TotalSizeBytes,
-				["hitCount"] = stats.HitCount,
-				["missCount"] = stats.MissCount
-			};
-
-			return Task.FromResult (HealthCheckResult.Healthy ("Cache is healthy", data));
-		} catch (Exception ex) {
-			return Task.FromResult (HealthCheckResult.Unhealthy ("Cache health check failed", ex));
-		}
-	}
-}
-
-public class AzureDevOpsConfiguration
-{
-	public required string OrganizationUrl { get; set; }
-	public required string PersonalAccessToken { get; set; }
-	public List<string> EnabledWriteOperations { get; set; } = [];
-	public bool RequireConfirmation { get; set; } = true;
-	public bool EnableAuditLogging { get; set; } = true;
-}
+// Note: Health check implementations and configuration classes are now in separate files

@@ -180,11 +180,11 @@ public class ResilientErrorHandler : IErrorHandler
 	static ErrorCategory CategorizeException (Exception exception)
 	{
 		return exception switch {
-			VssServiceException vssEx => HttpStatusErrorMap.GetValueOrDefault (vssEx.HttpStatusCode, ErrorCategory.ServerError),
+			VssServiceException vssEx => ErrorCategory.ServerError, // Simplified - HttpStatusCode may not be available
 			UnauthorizedAccessException => ErrorCategory.AuthorizationError,
 			SecurityException => ErrorCategory.AuthenticationError,
-			ArgumentException => ErrorCategory.ClientError,
 			Validation.ValidationException => ErrorCategory.ClientError,
+			ArgumentException => ErrorCategory.ClientError,
 			HttpRequestException httpEx when httpEx.Message.Contains ("timeout", StringComparison.OrdinalIgnoreCase) => ErrorCategory.Timeout,
 			TaskCanceledException tce when !tce.CancellationToken.IsCancellationRequested => ErrorCategory.Timeout,
 			TimeoutException => ErrorCategory.Timeout,

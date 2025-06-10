@@ -1,0 +1,60 @@
+version: 2
+updates:
+  # Enable version updates for NuGet packages
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@octocat"
+    assignees:
+      - "@octocat"
+    labels:
+      - "dependencies"
+      - "nuget"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    ignore:
+      # Ignore major version updates for stable packages
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@octocat"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@octocat"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"

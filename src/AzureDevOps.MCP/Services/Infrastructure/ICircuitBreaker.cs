@@ -5,6 +5,8 @@ public interface ICircuitBreaker
 	Task<T> ExecuteAsync<T> (Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
 	Task ExecuteAsync (Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default);
 	CircuitBreakerState State { get; }
+	int FailureCount { get; }
+	DateTime? LastFailureTime { get; }
 	void Reset ();
 }
 

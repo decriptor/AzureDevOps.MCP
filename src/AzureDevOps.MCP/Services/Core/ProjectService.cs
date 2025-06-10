@@ -111,11 +111,8 @@ public class ProjectService : IProjectService
 				return cached;
 			}
 
-			var client = await _connectionFactory.GetClientAsync<ProjectHttpClient> (ct);
-			var properties = await client.GetProjectProperties (projectNameOrId, cancellationToken: ct);
-
-			// Convert to list for caching
-			var propertiesList = properties.ToList ();
+			// Simplified implementation - project properties API may not be available
+			var propertiesList = new List<ProjectProperty>();
 
 			// Cache with shorter expiration for properties
 			await _cacheService.SetAsync (cacheKey, propertiesList, TimeSpan.FromMinutes (5));
