@@ -211,7 +211,7 @@ public class ProductionSecretManager : ISecretManager, IDisposable
 
         // Exclude interactive browser credential in production
         options.ExcludeInteractiveBrowserCredential = true;
-        options.ExcludeVisualStudioCodeCredential = true;
+        // Visual Studio Code credential excluded (deprecated)
         options.ExcludeVisualStudioCredential = true;
 
         return new DefaultAzureCredential(options);
@@ -324,56 +324,5 @@ public class ProductionSecretManager : ISecretManager, IDisposable
         _disposed = true;
 
         _logger.LogDebug("ProductionSecretManager disposed");
-    }
-}
-
-/// <summary>
-/// Represents a cached secret with expiration.
-/// </summary>
-internal record CachedSecret(string Value, DateTime ExpiresAt)
-{
-    public bool IsExpired => DateTime.UtcNow > ExpiresAt;
-}
-
-/// <summary>
-/// Exception thrown when a secret cannot be found in any configured source.
-/// </summary>
-public class SecretNotFoundException : Exception
-{
-    public string SecretName { get; }
-
-    public SecretNotFoundException(string secretName, string message) 
-        : base(message)
-    {
-        SecretName = secretName;
-    }
-
-    public SecretNotFoundException(string secretName, string message, Exception innerException) 
-        : base(message, innerException)
-    {
-        SecretName = secretName;
-    }
-}
-
-/// <summary>
-/// Secret manager factory for dependency injection.
-/// </summary>
-public static class SecretManagerFactory
-{
-    /// <summary>
-    /// Creates the appropriate secret manager based on configuration.
-    /// </summary>
-    public static ISecretManager CreateSecretManager(
-        IServiceProvider serviceProvider,
-        IOptions<ProductionConfiguration> config)
-    {
-        var securityConfig = config.Value.Security;
-        
-        if (securityConfig.EnableKeyVault)
-        {
-            return serviceProvider.GetRequiredService<ProductionSecretManager>();
-        }
-
-        return serviceProvider.GetRequiredService<EnvironmentSecretManager>();
     }
 }

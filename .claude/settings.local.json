@@ -17,7 +17,12 @@
       "Bash(mv:*)",
       "Bash(dotnet restore:*)",
       "Bash(sed:*)",
-      "Bash(dotnet run:*)"
+      "Bash(dotnet run:*)",
+      "Bash(./scripts/test-coverage.ps1)",
+      "Bash(pwsh ./scripts/test-coverage.ps1)",
+      "Bash(cp:*)",
+      "Bash(ls:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

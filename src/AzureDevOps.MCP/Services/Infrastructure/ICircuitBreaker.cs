@@ -1,61 +1,45 @@
 namespace AzureDevOps.MCP.Services.Infrastructure;
 
+/// <summary>
+/// Interface for circuit breaker pattern implementation.
+/// </summary>
 public interface ICircuitBreaker
 {
-	Task<T> ExecuteAsync<T> (Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
-	Task ExecuteAsync (Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default);
+	/// <summary>
+	/// Executes an operation through the circuit breaker.
+	/// </summary>
+	/// <typeparam name="T">The return type of the operation</typeparam>
+	/// <param name="operation">The operation to execute</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>The result of the operation</returns>
+	/// <exception cref="CircuitBreakerException">Thrown when the circuit is open</exception>
+	Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Executes an operation through the circuit breaker.
+	/// </summary>
+	/// <param name="operation">The operation to execute</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <exception cref="CircuitBreakerException">Thrown when the circuit is open</exception>
+	Task ExecuteAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// The current state of the circuit breaker.
+	/// </summary>
 	CircuitBreakerState State { get; }
+
+	/// <summary>
+	/// The number of consecutive failures.
+	/// </summary>
 	int FailureCount { get; }
+
+	/// <summary>
+	/// The time of the last failure, if any.
+	/// </summary>
 	DateTime? LastFailureTime { get; }
-	void Reset ();
-}
 
-public enum CircuitBreakerState
-{
-	Closed,
-	Open,
-	HalfOpen
-}
-
-public class CircuitBreakerException : Exception
-{
-	public CircuitBreakerState State { get; }
-
-	public CircuitBreakerException (CircuitBreakerState state, string message) : base (message)
-	{
-		State = state;
-	}
-
-	public CircuitBreakerException (CircuitBreakerState state, string message, Exception innerException) : base (message, innerException)
-	{
-		State = state;
-	}
-}
-
-public interface IRetryPolicy
-{
-	Task<T> ExecuteAsync<T> (Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
-	Task ExecuteAsync (Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default);
-}
-
-public class RetryOptions
-{
-	public int MaxAttempts { get; set; } = 3;
-	public TimeSpan BaseDelay { get; set; } = TimeSpan.FromMilliseconds (500);
-	public TimeSpan MaxDelay { get; set; } = TimeSpan.FromSeconds (30);
-	public double BackoffMultiplier { get; set; } = 2.0;
-	public Func<Exception, bool> ShouldRetry { get; set; } = DefaultShouldRetry;
-
-	static bool DefaultShouldRetry (Exception exception)
-	{
-		return exception switch {
-			TaskCanceledException => false,
-			OperationCanceledException => false,
-			ArgumentException => false,
-			InvalidOperationException => false,
-			HttpRequestException => true,
-			TimeoutException => true,
-			_ => true
-		};
-	}
+	/// <summary>
+	/// Resets the circuit breaker to closed state.
+	/// </summary>
+	void Reset();
 }

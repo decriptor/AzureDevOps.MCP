@@ -5,8 +5,6 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
-// Build, Test, Wiki, and Search APIs are not available as separate packages
-// They are part of the main Azure DevOps packages but may require additional setup
 
 namespace AzureDevOps.MCP.Services;
 
@@ -311,17 +309,35 @@ public class AzureDevOpsService : IAzureDevOpsService
 	}
 	*/
 
-	// Build and test operations - Commented out until proper Azure DevOps packages are available
-	// The required API clients (BuildHttpClient, TestManagementHttpClient) are not available in the current packages
+	// Test operations - Commented out until proper Azure DevOps test packages are available
+	// The required API clients (TestManagementHttpClient) are not available in the current packages
 	/*
-	public async Task<IEnumerable<Build>> GetBuildsAsync(string projectName, int? definitionId = null, int limit = 20)
+	public async Task<IEnumerable<TestPlan>> GetTestPlansAsync(string projectName, int limit = 20)
 	{
 		var connection = await GetConnectionAsync();
-		var buildClient = await connection.GetClientAsync<BuildHttpClient>();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
 		
-		var definitions = definitionId.HasValue ? new[] { definitionId.Value } : null;
+		return await testClient.GetPlansAsync(projectName, top: limit);
+	}
+	
+	public async Task<TestPlan?> GetTestPlanAsync(string projectName, int planId)
+	{
+		var connection = await GetConnectionAsync();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
 		
-		return await buildClient.GetBuildsAsync(projectName, definitions: definitions, top: limit);
+		try {
+			return await testClient.GetPlanAsync(projectName, planId);
+		} catch (VssServiceException) {
+			return null;
+		}
+	}
+	
+	public async Task<IEnumerable<TestSuite>> GetTestSuitesAsync(string projectName, int planId, int limit = 20)
+	{
+		var connection = await GetConnectionAsync();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
+		
+		return await testClient.GetTestSuitesForPlanAsync(projectName, planId, expand: SuiteExpand.Children, top: limit);
 	}
 	
 	public async Task<IEnumerable<TestRun>> GetTestRunsAsync(string projectName, int limit = 20)
@@ -330,6 +346,18 @@ public class AzureDevOpsService : IAzureDevOpsService
 		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
 		
 		return await testClient.GetTestRunsAsync(projectName, top: limit);
+	}
+	
+	public async Task<TestRun?> GetTestRunAsync(string projectName, int runId)
+	{
+		var connection = await GetConnectionAsync();
+		var testClient = await connection.GetClientAsync<TestManagementHttpClient>();
+		
+		try {
+			return await testClient.GetTestRunByIdAsync(projectName, runId);
+		} catch (VssServiceException) {
+			return null;
+		}
 	}
 	
 	public async Task<IEnumerable<TestCaseResult>> GetTestResultsAsync(string projectName, int runId)

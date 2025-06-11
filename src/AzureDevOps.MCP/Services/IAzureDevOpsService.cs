@@ -33,9 +33,12 @@ public interface IAzureDevOpsService
 	// Task<IEnumerable<WikiReference>> GetWikisAsync(string projectName);
 	// Task<WikiPage?> GetWikiPageAsync(string projectName, string wikiIdentifier, string path);
 
-	// Build and test operations - Commented out until proper Azure DevOps packages are available
-	// Task<IEnumerable<Build>> GetBuildsAsync(string projectName, int? definitionId = null, int limit = 20);
+	// Test operations - Commented out until proper Azure DevOps test packages are available
+	// Task<IEnumerable<TestPlan>> GetTestPlansAsync(string projectName, int limit = 20);
+	// Task<TestPlan?> GetTestPlanAsync(string projectName, int planId);
+	// Task<IEnumerable<TestSuite>> GetTestSuitesAsync(string projectName, int planId, int limit = 20);
 	// Task<IEnumerable<TestRun>> GetTestRunsAsync(string projectName, int limit = 20);
+	// Task<TestRun?> GetTestRunAsync(string projectName, int runId);
 	// Task<IEnumerable<TestCaseResult>> GetTestResultsAsync(string projectName, int runId);
 
 	// Artifact operations - commenting out as BuildHttpClient is not available

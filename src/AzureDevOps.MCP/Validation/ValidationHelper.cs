@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AzureDevOps.MCP.Common;
 
 namespace AzureDevOps.MCP.Validation;
 
@@ -13,11 +14,6 @@ public static class ValidationHelper
 	static readonly Regex FilePathRegex = new (@"^[^<>:""|?*]+$",
 		RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-	static readonly string[] ForbiddenPathSequences = { "..", "//", "\\\\", "<", ">", "|", "?", "*", ":" };
-
-	public const int MaxProjectNameLength = 64;
-	public const int MaxFilePathLength = 260;
-	public const int MaxBranchNameLength = 250;
 	public const int MaxWorkItemIdValue = int.MaxValue;
 	public const int MinWorkItemIdValue = 1;
 
@@ -27,8 +23,8 @@ public static class ValidationHelper
 			return ValidationResult.Invalid ("Project name cannot be null or empty");
 		}
 
-		if (projectName.Length > MaxProjectNameLength) {
-			return ValidationResult.Invalid ($"Project name cannot exceed {MaxProjectNameLength} characters");
+		if (projectName.Length > Constants.Validation.MaxProjectNameLength) {
+			return ValidationResult.Invalid ($"Project name cannot exceed {Constants.Validation.MaxProjectNameLength} characters");
 		}
 
 		if (projectName.Length < 2) {
@@ -67,8 +63,8 @@ public static class ValidationHelper
 			return ValidationResult.Invalid ("Branch name cannot be null or empty");
 		}
 
-		if (branchName.Length > MaxBranchNameLength) {
-			return ValidationResult.Invalid ($"Branch name cannot exceed {MaxBranchNameLength} characters");
+		if (branchName.Length > Constants.Validation.MaxBranchNameLength) {
+			return ValidationResult.Invalid ($"Branch name cannot exceed {Constants.Validation.MaxBranchNameLength} characters");
 		}
 
 		// Remove refs/heads/ prefix if present
@@ -93,12 +89,12 @@ public static class ValidationHelper
 			return ValidationResult.Invalid ("File path cannot be null or empty");
 		}
 
-		if (filePath.Length > MaxFilePathLength) {
-			return ValidationResult.Invalid ($"File path cannot exceed {MaxFilePathLength} characters");
+		if (filePath.Length > Constants.Validation.MaxFilePathLength) {
+			return ValidationResult.Invalid ($"File path cannot exceed {Constants.Validation.MaxFilePathLength} characters");
 		}
 
 		// Check for forbidden sequences
-		foreach (var forbiddenSequence in ForbiddenPathSequences) {
+		foreach (var forbiddenSequence in Constants.Validation.ForbiddenPathChars) {
 			if (filePath.Contains (forbiddenSequence)) {
 				return ValidationResult.Invalid ($"File path contains forbidden sequence: {forbiddenSequence}");
 			}
@@ -206,33 +202,4 @@ public static class ValidationHelper
 
 		return ValidationResult.Valid ();
 	}
-}
-
-public class ValidationResult
-{
-	public bool IsValid { get; init; }
-	public string? ErrorMessage { get; init; }
-
-	ValidationResult () { }
-
-	public static ValidationResult Valid () => new () { IsValid = true };
-
-	public static ValidationResult Invalid (string errorMessage) => new () {
-		IsValid = false,
-		ErrorMessage = errorMessage ?? "Validation failed"
-	};
-
-	public void ThrowIfInvalid ()
-	{
-		if (!IsValid) {
-			throw new ValidationException (ErrorMessage ?? "Validation failed");
-		}
-	}
-}
-
-public class ValidationException : ArgumentException
-{
-	public ValidationException (string message) : base (message) { }
-	public ValidationException (string message, Exception innerException) : base (message, innerException) { }
-	public ValidationException (string message, string paramName) : base (message, paramName) { }
 }

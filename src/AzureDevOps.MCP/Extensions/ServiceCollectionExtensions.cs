@@ -82,8 +82,13 @@ public static class ServiceCollectionExtensions
 		// Connection management
 		services.AddSingleton<IAzureDevOpsConnectionFactory, AzureDevOpsConnectionFactory>();
 		
+		// Memory optimization infrastructure
+		services.AddSingleton<Microsoft.Extensions.ObjectPool.ObjectPoolProvider, Microsoft.Extensions.ObjectPool.DefaultObjectPoolProvider>();
+		services.AddSingleton<MemoryPoolService>();
+		
 		// Basic caching
 		services.AddSingleton<ICacheService, CacheService>();
+		services.AddSingleton<MemoryOptimizedCacheService>();
 		
 		// Error handling  
 		services.AddScoped<IErrorHandler, ResilientErrorHandler>();
@@ -127,13 +132,8 @@ public static class ServiceCollectionExtensions
 			}
 		});
 
-		// Add health checks
-		services.AddHealthChecks()
-			.AddCheck<ApplicationHealthCheck>("application", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy, new[] { "application" })
-			.AddCheck<AzureDevOpsHealthCheck>("azuredevops", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy, new[] { "azuredevops", "external" })
-			.AddCheck<CacheHealthCheck>("cache", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded, new[] { "cache", "infrastructure" })
-			.AddCheck<MemoryHealthCheck>("memory", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded, new[] { "memory", "system" })
-			.AddCheck<SecretsHealthCheck>("secrets", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy, new[] { "secrets", "security" });
+		// Add basic health checks
+		services.AddHealthChecks();
 
 		// Add logging configuration
 		services.AddLogging(builder =>
@@ -168,46 +168,8 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<Tools.BatchTools>();
 		services.AddScoped<Tools.PerformanceTools>();
 		services.AddScoped<Tools.SafeWriteTools>();
+		services.AddScoped<Tools.TestPlanTools>();
 
 		return services;
-	}
-}
-
-/// <summary>
-/// Configuration validator for Azure DevOps settings.
-/// </summary>
-public class AzureDevOpsConfigurationValidator : IValidateOptions<AzureDevOpsConfiguration>
-{
-	public ValidateOptionsResult Validate(string? name, AzureDevOpsConfiguration options)
-	{
-		if (string.IsNullOrEmpty(options.OrganizationUrl))
-			return ValidateOptionsResult.Fail("OrganizationUrl is required");
-
-		if (string.IsNullOrEmpty(options.PersonalAccessToken))
-			return ValidateOptionsResult.Fail("PersonalAccessToken is required");
-
-		if (!Uri.TryCreate(options.OrganizationUrl, UriKind.Absolute, out _))
-			return ValidateOptionsResult.Fail("OrganizationUrl must be a valid URL");
-
-		return ValidateOptionsResult.Success;
-	}
-}
-
-/// <summary>
-/// Configuration validator for production settings.
-/// </summary>
-public class ProductionConfigurationValidator : IValidateOptions<ProductionConfiguration>
-{
-	public ValidateOptionsResult Validate(string? name, ProductionConfiguration options)
-	{
-		var errors = options.ValidateConfiguration();
-		
-		if (errors.Any())
-		{
-			var errorMessage = string.Join("; ", errors);
-			return ValidateOptionsResult.Fail(errorMessage);
-		}
-
-		return ValidateOptionsResult.Success;
 	}
 }

@@ -1,48 +1,54 @@
 # Azure DevOps MCP Server
 
-This project implements a Model Context Protocol (MCP) server that provides read-only integration with Azure DevOps. It allows tools like Visual Studio Code to interact with Azure DevOps through the MCP protocol using stdio transport.
+This project implements a Model Context Protocol (MCP) server that provides integration with Azure DevOps. It allows tools like Claude Desktop and Visual Studio Code to interact with Azure DevOps through the MCP protocol using stdio transport.
 
 ## Features
 
-- **Projects**: Browse Azure DevOps projects
-- **Repositories**: View repositories and their contents
-- **Files**: Read file contents from repositories
-- **Work Items**: Query and view work items
-- **Read-only access**: Safe integration with Azure DevOps resources
+- **Projects**: Browse Azure DevOps projects and team information
+- **Repositories**: View repositories, files, commits, branches, and pull requests
+- **Work Items**: Query and manage work items with optional write operations
+- **Performance Monitoring**: Built-in performance tracking and optimization
+- **Production Ready**: Comprehensive caching, error handling, and security features
+- **Safe Write Operations**: Opt-in write capabilities with audit logging
 
-## Available Tools
+## Available MCP Tools
 
-The MCP server exposes the following tools:
+The server exposes Azure DevOps functionality through five main tool categories:
 
-### Read-Only Tools (Always Available)
+### Core Azure DevOps Tools (`AzureDevOpsTools`)
+**Read-Only Operations (Always Available):**
 - `list_projects` - Lists all projects in the Azure DevOps organization
-- `list_repositories` - Lists all repositories in a specific project
+- `list_repositories` - Lists repositories in a specific project  
 - `list_repository_items` - Lists files and folders in a repository path
 - `get_file_content` - Gets the content of a specific file from a repository
 - `list_work_items` - Lists work items in a specific project
 - `get_work_item` - Gets detailed information about a specific work item
-- `get_audit_logs` - Retrieves audit logs for write operations
 
-### Safe Write Tools (Require Explicit Opt-In)
-- `add_pull_request_comment` - Adds a comment to a pull request (requires `PullRequestComments` in `EnabledWriteOperations`)
-- `create_draft_pull_request` - Creates a draft pull request (requires `CreateDraftPullRequest` in `EnabledWriteOperations`)
-- `update_work_item_tags` - Adds or removes tags from work items (requires `UpdateWorkItemTags` in `EnabledWriteOperations`)
+### Safe Write Tools (`SafeWriteTools`)
+**Write Operations (Require Explicit Opt-In):**
+- `add_pull_request_comment` - Adds a comment to a pull request (requires `PullRequestComments`)
+- `create_draft_pull_request` - Creates a draft pull request (requires `CreateDraftPullRequest`)
+- `update_work_item_tags` - Adds or removes tags from work items (requires `UpdateWorkItemTags`)
 
-### Performance & Batch Tools
+### Batch Operations (`BatchTools`)
+**High-Performance Bulk Operations:**
 - `batch_get_work_items` - Retrieves multiple work items efficiently in parallel
-- `batch_get_file_contents` - Gets contents of multiple files in parallel
-- `batch_list_repository_items` - Lists items from multiple repository paths in parallel
-- `get_performance_metrics` - View operation timings, API call statistics, and cache performance
-- `clear_cache` - Clear all cached data to force fresh API calls
+- `batch_get_repositories` - Gets multiple repository details in parallel
 
-### Extended Read Tools
-- `search_code` - Search for code across repositories with project and repository filters
-- `get_wikis` - List all wikis in a project
-- `get_wiki_page` - Read wiki page content
-- `get_builds` - List builds with optional filtering by build definition
-- `get_test_runs` - List test runs in a project
-- `get_test_results` - Get test results for a specific test run
-- `download_build_artifact` - Download build artifacts as streams
+### Test Plan Management (`TestPlanTools`)
+**Test Management Operations:**
+- `get_test_plans` - Gets test plans for a specific Azure DevOps project
+- `get_test_plan` - Gets detailed information about a specific test plan
+- `get_test_suites` - Gets test suites for a specific test plan
+- `get_test_runs` - Gets test runs for a specific Azure DevOps project
+- `get_test_run` - Gets detailed information about a specific test run
+- `get_test_results` - Gets test results for a specific test run
+
+### Performance & Monitoring (`PerformanceTools`)
+**System Management:**
+- `get_performance_metrics` - View operation timings, API call statistics, and cache performance
+- `get_cache_statistics` - Detailed cache performance and hit rate statistics
+- `clear_cache` - Clear all cached data to force fresh API calls
 
 ## Prerequisites
 
@@ -64,6 +70,7 @@ The MCP server exposes the following tools:
    - **Code**: Read
    - **Work Items**: Read
    - **Project and Team**: Read
+   - **Test Management**: Read (for test plan operations)
 8. Set an expiration date for your token
 9. Click **Create**
 10. **Copy and securely store your token** (you won't be able to see it again!)
@@ -118,19 +125,26 @@ For Claude Desktop, add this to your MCP configuration:
 
 ## Configuration
 
-The server can be configured through environment variables or by editing the appsettings.json file:
+The server supports comprehensive configuration through environment variables or `appsettings.json`:
 
-| Setting | Description | Required | Default |
-|---------|-------------|----------|---------|
-| `AzureDevOps__OrganizationUrl` | Your Azure DevOps organization URL (e.g., <https://dev.azure.com/myorg>) | Yes | - |
-| `AzureDevOps__PersonalAccessToken` | Your Azure DevOps Personal Access Token | Yes | - |
-| `AzureDevOps__EnabledWriteOperations` | Array of enabled write operations (see Safe Write Operations below) | No | `[]` |
-| `AzureDevOps__RequireConfirmation` | Require explicit confirmation for write operations | No | `true` |
-| `AzureDevOps__EnableAuditLogging` | Enable audit logging for all write operations | No | `true` |
+### Required Configuration
 
-### Safe Write Operations
+| Setting | Description | Required |
+|---------|-------------|----------|
+| `AzureDevOps__OrganizationUrl` | Your Azure DevOps organization URL (e.g., `https://dev.azure.com/myorg`) | Yes |
+| `AzureDevOps__PersonalAccessToken` | Your Azure DevOps Personal Access Token | Yes |
 
-The server supports opt-in write operations for low-risk actions. To enable specific write operations, add them to the `EnabledWriteOperations` array:
+### Optional Configuration
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `AzureDevOps__EnabledWriteOperations` | Array of enabled write operations | `[]` |
+| `AzureDevOps__RequireConfirmation` | Require explicit confirmation for write operations | `true` |
+| `AzureDevOps__EnableAuditLogging` | Enable audit logging for all operations | `true` |
+
+### Advanced Configuration
+
+The server supports extensive production configuration options:
 
 ```json
 {
@@ -139,16 +153,45 @@ The server supports opt-in write operations for low-risk actions. To enable spec
     "PersonalAccessToken": "your-pat-goes-here",
     "EnabledWriteOperations": ["PullRequestComments"],
     "RequireConfirmation": true,
-    "EnableAuditLogging": true
+    "EnableAuditLogging": true,
+    "Monitoring": {
+      "EnablePerformanceTracking": true,
+      "EnableErrorTracking": true,
+      "Sentry": {
+        "Dsn": "your-sentry-dsn"
+      }
+    }
+  },
+  "Caching": {
+    "EnableMemoryCache": true,
+    "MaxMemoryCacheSizeMB": 100,
+    "DefaultCacheDurationMinutes": 15
+  },
+  "Performance": {
+    "SlowOperationThresholdMs": 1000,
+    "EnableCircuitBreaker": true,
+    "EnableMonitoring": true
+  },
+  "Security": {
+    "EnableKeyVault": false,
+    "KeyVaultUrl": "https://your-keyvault.vault.azure.net/"
+  },
+  "RateLimiting": {
+    "EnableRateLimiting": true,
+    "RequestsPerMinute": 60,
+    "RequestsPerHour": 1000
   }
 }
 ```
 
-Available safe write operations:
-- `PullRequestComments` - Add comments to pull requests
+### Available Write Operations
+
+Enable specific write operations by adding them to `EnabledWriteOperations`:
+
+- `PullRequestComments` - Add comments to pull requests  
+- `WorkItemComments` - Add comments to work items
 - `CreateDraftPullRequest` - Create draft pull requests (not published until ready)
 - `UpdateWorkItemTags` - Add or remove tags from work items
-- Coming soon: `WorkItemComments`
 
 ### Write Operation Safety Features
 
@@ -159,13 +202,41 @@ Available safe write operations:
 
 ## Architecture
 
-This project follows .NET best practices:
+This project implements a modern, production-ready architecture with .NET 9:
 
-- **Centralized Package Management**: Uses Directory.Packages.props for version management
-- **Dependency Injection**: Proper service registration and injection
-- **Logging**: Structured logging throughout the application
-- **Error Handling**: Comprehensive error handling with meaningful messages
-- **Clean Architecture**: Separation of concerns with Services and Tools layers
+### Core Architecture Layers
+
+- **MCP Tools Layer** (`Tools/`): Five specialized tool categories implementing MCP protocol
+  - `AzureDevOpsTools` - Core read operations
+  - `SafeWriteTools` - Opt-in write operations with safety measures
+  - `BatchTools` - High-performance bulk operations
+  - `TestPlanTools` - Test plan and test management operations
+  - `PerformanceTools` - System monitoring and management
+
+- **Services Layer** (`Services/`):
+  - **Core Services** (`Core/`): Domain-specific business logic (Projects, Repositories, WorkItems, Builds, Tests, Search)
+  - **Infrastructure Services** (`Infrastructure/`): Cross-cutting concerns (Caching, Performance, Health, Connection Management)
+  - **Legacy Service**: `AzureDevOpsService` for backward compatibility
+
+- **Configuration Layer** (`Configuration/`): Modular configuration classes
+  - `ProductionConfiguration` - Complete production settings
+  - `CachingConfiguration` - Cache management
+  - `PerformanceConfiguration` - Performance tuning
+  - `SecurityConfiguration` - Security settings
+  - `RateLimitingConfiguration` - API rate limiting
+
+- **Security & Infrastructure**:
+  - **Authorization** (`Authorization/`): Permission-based access control
+  - **Security** (`Security/`): Secret management with Azure Key Vault support
+  - **Error Handling** (`ErrorHandling/`): Resilient execution patterns
+
+### Production Features
+
+- **Performance Optimization**: Built-in caching, connection pooling, and performance monitoring
+- **Reliability**: Circuit breaker patterns, retry policies, and health checks
+- **Security**: Comprehensive secret management, authorization, and audit logging
+- **Monitoring**: Sentry integration, structured logging, and performance metrics
+- **Scalability**: Rate limiting, memory management, and efficient batch operations
 
 ## Building from Source
 
@@ -182,12 +253,90 @@ dotnet run --project src/AzureDevOps.MCP
 
 ## Development
 
-The project uses:
+### Technology Stack
 
-- **.NET 9**: Target framework
-- **ModelContextProtocol 0.2.0-preview.3**: Latest MCP SDK
+- **.NET 9**: Latest framework with modern C# features
+- **ModelContextProtocol**: MCP SDK for protocol implementation
 - **Azure DevOps Client Libraries**: Official Microsoft libraries for Azure DevOps integration
+- **BenchmarkDotNet**: Performance benchmarking and optimization
 - **Centralized Package Management**: All package versions managed in Directory.Packages.props
+
+### Testing
+
+The project includes comprehensive testing infrastructure:
+
+```bash
+# Run all tests (149 test methods)
+dotnet test
+
+# Run tests with coverage
+./scripts/test-coverage.ps1
+
+# Run performance benchmarks
+cd tests/AzureDevOps.MCP.Tests
+dotnet run --configuration Release -- cache           # Cache performance
+dotnet run --configuration Release -- performance     # Service performance  
+dotnet run --configuration Release -- config          # Configuration benchmarks
+dotnet run --configuration Release -- frozen          # .NET 9 collections performance
+```
+
+### Development Scripts
+
+- `./scripts/dev-setup.ps1` - Quick setup for new developers
+- `./scripts/test-coverage.ps1` - Run tests with coverage analysis
+- `./scripts/test-coverage.ps1 -OpenReport` - Generate and open coverage report
+
+## Example Workflow: Test Plan → Clone → Tests → PR
+
+The Azure DevOps MCP server enables powerful workflows for test-driven development:
+
+### Complete End-to-End Workflow
+
+1. **Get Test Plan Requirements**
+   ```bash
+   # Use MCP client to get test plan details
+   get_test_plans projectName="MyProject"
+   get_test_plan projectName="MyProject" planId=123
+   get_test_suites projectName="MyProject" planId=123
+   ```
+
+2. **Get Repository Information**
+   ```bash
+   # Get repository details and clone URL
+   list_repositories projectName="MyProject"
+   list_repository_items projectName="MyProject" repositoryId="repo-guid" path="/"
+   ```
+
+3. **Local Development** (You handle these steps)
+   ```bash
+   # Clone repository using information from MCP server
+   git clone https://dev.azure.com/org/project/_git/repository
+   cd repository
+   
+   # Create feature branch
+   git checkout -b feature/implement-test-plan-123
+   
+   # Generate unit tests and UI tests based on test plan requirements
+   # (Use test plan details to understand what needs to be tested)
+   
+   # Commit your changes
+   git add .
+   git commit -m "Implement tests for test plan #123"
+   git push origin feature/implement-test-plan-123
+   ```
+
+4. **Create Pull Request**
+   ```bash
+   # Use MCP server to create draft PR
+   create_draft_pull_request projectName="MyProject" repositoryId="repo-guid" \
+     sourceBranch="feature/implement-test-plan-123" \
+     targetBranch="main" \
+     title="Implement tests for test plan #123" \
+     description="Added unit tests and UI tests based on test plan requirements" \
+     confirm=true
+   ```
+
+This workflow demonstrates how the MCP server bridges the gap between Azure DevOps test management and local development, enabling seamless test-driven development processes.
 
 ## Security Notes
 

@@ -4,25 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Azure DevOps MCP (Model Context Protocol) server built with .NET 9 and ASP.NET Core. It provides read-only integration with Azure DevOps through the MCP protocol, enabling tools like VS Code to interact with Azure DevOps resources.
+This is an Azure DevOps MCP (Model Context Protocol) server built with .NET 9. It provides comprehensive integration with Azure DevOps through the MCP protocol, enabling tools like Claude Desktop and VS Code to interact with Azure DevOps resources with production-grade reliability and performance.
 
 ## Architecture
 
-The application follows a layered architecture:
+The application follows a modern clean architecture with production-ready features:
 
-- **Controllers**: MCP controllers in `src/AzureDevOps.MCP/MCP/` that expose Azure DevOps functionality as MCP tools
-  - `ProjectsController.cs` - Lists Azure DevOps projects
-  - `RepositoriesController.cs` - Git repository operations (files, commits, branches, tags, pull requests)
-  - `WorkItemsController.cs` - Work item queries and details
-  - `PipelinesController.cs` - Build and release pipeline management
-  - `TestPlansController.cs` - Test plan, suite, and run operations
-  - `ArtifactsController.cs` - Package feed and artifact management
-- **Services**: Business logic layer in `src/AzureDevOps.MCP/Services/`
-  - `AzureDevOpsService.cs` - Core service that wraps Azure DevOps REST API clients
-  - `IAzureDevOpsService.cs` - Service interface defining all Azure DevOps operations
-- **Program.cs**: Application entry point with MCP server configuration using `AddMcpServer()` and `WithStdioServerTransport()`
+### MCP Tools Layer (`src/AzureDevOps.MCP/Tools/`)
+- **`AzureDevOpsTools.cs`** - Core read operations (projects, repositories, files, work items)
+- **`SafeWriteTools.cs`** - Opt-in write operations with safety measures and audit logging
+- **`BatchTools.cs`** - High-performance bulk operations for efficient data retrieval
+- **`PerformanceTools.cs`** - System monitoring, metrics collection, and cache management
 
-The server uses Microsoft's Azure DevOps REST API client libraries and the ModelContextProtocol NuGet package for MCP functionality.
+### Services Layer (`src/AzureDevOps.MCP/Services/`)
+- **Core Services** (`Services/Core/`): Domain-specific business logic
+  - `ProjectService.cs` - Project and team management
+  - `RepositoryService.cs` - Git repository operations
+  - `WorkItemService.cs` - Work item queries and management
+  - `BuildService.cs` - Build and pipeline operations
+  - `TestService.cs` - Test management and results
+  - `SearchService.cs` - Code search capabilities
+- **Infrastructure Services** (`Services/Infrastructure/`): Cross-cutting concerns
+  - Connection management, caching, performance monitoring, health checks
+  - Rate limiting, circuit breakers, and resilient execution patterns
+- **Legacy Service**: `AzureDevOpsService.cs` - Backward compatibility wrapper
+
+### Configuration & Infrastructure
+- **Configuration** (`Configuration/`): Modular configuration classes for production deployment
+- **Security** (`Security/`): Secret management with Azure Key Vault integration
+- **Authorization** (`Authorization/`): Permission-based access control
+- **Error Handling** (`ErrorHandling/`): Resilient error handling patterns
+
+### Application Entry Point
+- **Program.cs**: Application startup with dependency injection and MCP server configuration
 
 ## Common Commands
 
@@ -46,17 +60,22 @@ dotnet build AzureDevOps.MCP.slnx
 
 ### Testing & Quality
 ```bash
-# Run all tests
+# Run all tests (149 test methods across multiple categories)
 dotnet test
 
-# Run tests with coverage
+# Run tests with coverage analysis
 ./scripts/test-coverage.ps1
 
-# Run tests with coverage and open report
+# Run tests with coverage and open detailed report
 ./scripts/test-coverage.ps1 -OpenReport
 
 # Run performance benchmarks
-dotnet test --filter "FullyQualifiedName~PerformanceBenchmarks"
+cd tests/AzureDevOps.MCP.Tests
+dotnet run --configuration Release -- cache           # Cache performance benchmarks
+dotnet run --configuration Release -- performance     # Service performance benchmarks
+dotnet run --configuration Release -- config          # Configuration benchmarks
+dotnet run --configuration Release -- frozen          # .NET 9 collections benchmarks
+dotnet run --configuration Release -- secrets         # Secret management benchmarks
 ```
 
 ### Docker
@@ -73,20 +92,43 @@ docker run -p 3000:80 \
 
 ## Configuration
 
+### Required Configuration
 The application requires Azure DevOps configuration through environment variables or `appsettings.json`:
 - `AzureDevOps__OrganizationUrl` - Azure DevOps organization URL
-- `AzureDevOps__PersonalAccessToken` - Personal Access Token with Read permissions for Code, Work Items, and Project/Team
+- `AzureDevOps__PersonalAccessToken` - Personal Access Token with appropriate permissions
+
+### Production Configuration
+The application supports extensive production configuration options:
+- **Caching**: Memory cache settings, cache duration configuration
+- **Performance**: Operation thresholds, circuit breaker settings, monitoring options
+- **Security**: Azure Key Vault integration, secret management, authorization policies
+- **Rate Limiting**: API rate limiting configuration for Azure DevOps calls
+- **Monitoring**: Sentry integration, structured logging, performance metrics
+
+### Write Operations Configuration
+Safe write operations can be enabled by configuring:
+- `AzureDevOps__EnabledWriteOperations` - Array of enabled write operation types
+- `AzureDevOps__RequireConfirmation` - Require explicit confirmation for write operations
+- `AzureDevOps__EnableAuditLogging` - Enable comprehensive audit logging
 
 ## Available MCP Tools
 
-The server exposes comprehensive Azure DevOps functionality through these MCP tool categories:
+The server exposes Azure DevOps functionality through four specialized tool categories:
 
-- **Projects**: List all accessible projects
-- **Repositories**: Git operations including file browsing, commits, branches, tags, and pull requests  
+### Core Azure DevOps Tools (`AzureDevOpsTools`)
+- **Projects**: List all accessible projects and project details
+- **Repositories**: Git operations including file browsing, content retrieval
 - **Work Items**: Query and retrieve work item details
-- **Pipelines**: Build definitions, builds, agent pools, release definitions, and releases
-- **Test Plans**: Test plans, suites, and test runs
-- **Artifacts**: Package feeds and packages
+
+### Safe Write Tools (`SafeWriteTools`)  
+- **Pull Request Operations**: Add comments to pull requests, create draft PRs
+- **Work Item Management**: Update work item tags and metadata
+
+### Batch Operations (`BatchTools`)
+- **High-Performance Bulk Operations**: Efficiently retrieve multiple work items or repositories in parallel
+
+### Performance & Monitoring (`PerformanceTools`)
+- **System Metrics**: Performance monitoring, cache statistics, system management
 
 ## Key Dependencies
 

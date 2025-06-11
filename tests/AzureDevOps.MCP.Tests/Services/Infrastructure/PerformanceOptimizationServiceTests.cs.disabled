@@ -1,0 +1,679 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+using System.Collections.Frozen;
+using System.Diagnostics;
+using AzureDevOps.MCP.Configuration;
+using AzureDevOps.MCP.Services.Infrastructure;
+
+namespace AzureDevOps.MCP.Tests.Services.Infrastructure;
+
+[TestClass]
+public class PerformanceOptimizationServiceTests
+{
+    private Mock<ILogger<PerformanceOptimizationService>> _mockLogger = null!;
+    private Mock<IOptions<PerformanceConfiguration>> _mockOptions = null!;
+    private PerformanceConfiguration _config = null!;
+    private PerformanceOptimizationService _service = null!;
+
+    [TestInitialize]
+    public void Setup()
+    {
+        _mockLogger = new Mock<ILogger<PerformanceOptimizationService>>();
+        _mockOptions = new Mock<IOptions<PerformanceConfiguration>>();
+        
+        _config = new PerformanceConfiguration
+        {
+            SlowOperationThresholdMs = 1000,
+            EnableCircuitBreaker = true
+        };
+        
+        _mockOptions.Setup(x => x.Value).Returns(_config);
+        _service = new PerformanceOptimizationService(_mockLogger.Object, _mockOptions.Object);
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        _service?.Dispose();
+    }
+
+    [TestMethod]
+    public void OptimizeCacheDuration_WithHighFrequencyOperation_ReturnsOptimizedDuration()
+    {
+        // Arrange
+        const string operationType = "GetWorkItems";
+        const string dataType = "workitems";
+        
+        // Act
+        var duration = _service.OptimizeCacheDuration(operationType, dataType);
+        
+        // Assert
+        Assert.IsTrue(duration > TimeSpan.Zero);
+        Assert.IsTrue(duration < TimeSpan.FromMinutes(10)); // Should be optimized for high frequency
+    }
+
+    [TestMethod]
+    public void OptimizeCacheDuration_WithStaticData_ReturnsLongerDuration()
+    {
+        // Arrange
+        const string operationType = "Get";
+        const string dataType = "projects";
+        
+        // Act
+        var duration = _service.OptimizeCacheDuration(operationType, dataType);
+        
+        // Assert
+        Assert.IsTrue(duration >= TimeSpan.FromHours(1)); // Static data should have longer cache
+    }
+
+    [TestMethod]
+    public void OptimizeCacheDuration_WithUnknownDataType_ReturnsDefaultDuration()
+    {
+        // Arrange
+        const string operationType = "Get";
+        const string dataType = "unknown";
+        
+        // Act
+        var duration = _service.OptimizeCacheDuration(operationType, dataType);
+        
+        // Assert
+        Assert.AreEqual(TimeSpan.FromMinutes(5), duration); // Should return default
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithSuccessfulOperation_RecordsMetrics()
+    {
+        // Arrange
+        const string operationName = "TestOperation";
+        var operationResult = "Success";
+        
+        // Act
+        var result = await _service.TrackPerformanceAsync(operationName, 
+            async ct =>
+            {
+                await Task.Delay(10, ct); // Simulate some work
+                return operationResult;
+            });
+        
+        // Assert
+        Assert.AreEqual(operationResult, result);
+        
+        // Give some time for metrics to be recorded
+        await Task.Delay(10);
+        
+        var recommendations = _service.GetPerformanceRecommendations();
+        Assert.IsTrue(recommendations.OperationMetrics.ContainsKey(operationName));
+        Assert.AreEqual(1, recommendations.OperationMetrics[operationName].CallCount);
+        Assert.AreEqual(0, recommendations.OperationMetrics[operationName].FailureCount);
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithFailedOperation_RecordsFailure()
+    {
+        // Arrange
+        const string operationName = "FailingOperation";
+        var expectedException = new InvalidOperationException("Test failure");
+        
+        // Act & Assert
+        var exception = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+            () => _service.TrackPerformanceAsync<string>(operationName, 
+                ct => throw expectedException));
+        
+        Assert.AreEqual(expectedException, exception);
+        
+        // Give some time for metrics to be recorded
+        await Task.Delay(10);
+        
+        var recommendations = _service.GetPerformanceRecommendations();
+        Assert.IsTrue(recommendations.OperationMetrics.ContainsKey(operationName));
+        Assert.AreEqual(1, recommendations.OperationMetrics[operationName].CallCount);
+        Assert.AreEqual(1, recommendations.OperationMetrics[operationName].FailureCount);
+        Assert.AreEqual("InvalidOperationException", recommendations.OperationMetrics[operationName].LastFailure);
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithCancellation_PropagatesCancellation()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(10));
+        
+        // Act & Assert
+        await Assert.ThrowsExceptionAsync<OperationCanceledException>(
+            () => _service.TrackPerformanceAsync("CancelledOperation", 
+                async ct =>
+                {
+                    await Task.Delay(1000, ct);
+                    return "Should not complete";
+                }, cts.Token));
+    }
+
+    [TestMethod]
+    public void GetPerformanceRecommendations_ReturnsValidRecommendations()
+    {
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        
+        // Assert
+        Assert.IsNotNull(recommendations);
+        Assert.IsTrue(recommendations.GeneratedAt <= DateTimeOffset.UtcNow);
+        Assert.IsNotNull(recommendations.Recommendations);
+        Assert.IsNotNull(recommendations.SystemMetrics);
+        Assert.IsNotNull(recommendations.OperationMetrics);
+    }
+
+    [TestMethod]
+    public void GetPerformanceRecommendations_IncludesSystemMetrics()
+    {
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        
+        // Assert
+        var metrics = recommendations.SystemMetrics;
+        Assert.IsTrue(metrics.TotalMemoryBytes > 0);
+        Assert.IsTrue(metrics.ProcessorCount > 0);
+        Assert.IsTrue(metrics.WorkingSetBytes > 0);
+        Assert.IsTrue(metrics.GCGen0Collections >= 0);
+        Assert.IsTrue(metrics.GCGen1Collections >= 0);
+        Assert.IsTrue(metrics.GCGen2Collections >= 0);
+    }
+
+    [TestMethod]
+    public async Task GetPerformanceRecommendations_WithSlowOperations_IncludesOptimizationSuggestions()
+    {
+        // Arrange - Create a slow operation by setting low threshold
+        _config.SlowOperationThresholdMs = 1; // Very low threshold
+        
+        // Simulate slow operation
+        await _service.TrackPerformanceAsync("SlowWorkItemOperation", 
+            async ct =>
+            {
+                await Task.Delay(50, ct); // Longer than threshold
+                return "result";
+            });
+        
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        
+        // Assert
+        var slowOpRecommendations = recommendations.Recommendations
+            .Where(r => r.Category == "SlowOperation")
+            .ToArray();
+        
+        Assert.IsTrue(slowOpRecommendations.Length > 0);
+        Assert.IsTrue(slowOpRecommendations.Any(r => r.Description.Contains("SlowWorkItemOperation")));
+        Assert.IsTrue(slowOpRecommendations.Any(r => r.Suggestion.Contains("workitem")));
+    }
+
+    [TestMethod]
+    public void OptimizeAllocation_WithReferenceType_ReturnsCreatedObject()
+    {
+        // Arrange
+        var testObject = new { Name = "Test", Value = 42 };
+        
+        // Act
+        var result = _service.OptimizeAllocation(() => testObject);
+        
+        // Assert
+        Assert.AreEqual(testObject, result);
+    }
+
+    [TestMethod]
+    public void OptimizeAllocation_WithValueTypeWrapper_ReturnsValue()
+    {
+        // Arrange
+        const string testValue = "42";
+        
+        // Act
+        var result = _service.OptimizeAllocation(() => testValue);
+        
+        // Assert
+        Assert.AreEqual(testValue, result);
+    }
+
+    [TestMethod]
+    public void CreateCacheWarmingPlan_ReturnsValidPlan()
+    {
+        // Act
+        var plan = _service.CreateCacheWarmingPlan();
+        
+        // Assert
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.CreatedAt <= DateTimeOffset.UtcNow);
+        Assert.IsNotNull(plan.Operations);
+        Assert.IsTrue(plan.EstimatedTotalBenefit >= 0);
+        Assert.IsTrue(plan.EstimatedPreloadDuration >= TimeSpan.Zero);
+    }
+
+    [TestMethod]
+    public async Task CreateCacheWarmingPlan_WithFrequentOperations_PrioritizesCorrectly()
+    {
+        // Arrange - Create multiple operations with different frequencies
+        for (int i = 0; i < 20; i++)
+        {
+            await _service.TrackPerformanceAsync("HighFrequencyOp", async ct =>
+            {
+                await Task.Delay(10, ct);
+                return "result";
+            });
+        }
+        
+        for (int i = 0; i < 5; i++)
+        {
+            await _service.TrackPerformanceAsync("LowFrequencyOp", async ct =>
+            {
+                await Task.Delay(50, ct);
+                return "result";
+            });
+        }
+        
+        // Act
+        var plan = _service.CreateCacheWarmingPlan();
+        
+        // Assert
+        Assert.IsTrue(plan.Operations.Count > 0);
+        
+        var highFreqOp = plan.Operations.FirstOrDefault(op => op.OperationName == "HighFrequencyOp");
+        var lowFreqOp = plan.Operations.FirstOrDefault(op => op.OperationName == "LowFrequencyOp");
+        
+        if (highFreqOp != null && lowFreqOp != null)
+        {
+            // High frequency operation should have higher estimated benefit
+            Assert.IsTrue(highFreqOp.EstimatedBenefit >= lowFreqOp.EstimatedBenefit);
+        }
+    }
+
+    [TestMethod]
+    public async Task PerformanceMetrics_AccumulateCorrectly()
+    {
+        // Arrange
+        const string operationName = "AccumulationTest";
+        
+        // Act - Perform multiple operations
+        for (int i = 0; i < 5; i++)
+        {
+            await _service.TrackPerformanceAsync(operationName, async ct =>
+            {
+                await Task.Delay(10 + i * 5, ct); // Varying delays
+                return $"result_{i}";
+            });
+        }
+        
+        // Assert
+        var recommendations = _service.GetPerformanceRecommendations();
+        Assert.IsTrue(recommendations.OperationMetrics.ContainsKey(operationName));
+        
+        var metrics = recommendations.OperationMetrics[operationName];
+        Assert.AreEqual(5, metrics.CallCount);
+        Assert.AreEqual(0, metrics.FailureCount);
+        Assert.IsTrue(metrics.AverageResponseTime > TimeSpan.Zero);
+        Assert.IsTrue(metrics.MinResponseTime <= metrics.AverageResponseTime);
+        Assert.IsTrue(metrics.MaxResponseTime >= metrics.AverageResponseTime);
+        Assert.IsTrue(metrics.TotalResponseTime.TotalMilliseconds >= metrics.AverageResponseTime.TotalMilliseconds * 5);
+    }
+
+    [TestMethod]
+    public void SystemMetrics_ReflectCurrentState()
+    {
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        
+        // Assert
+        var systemMetrics = recommendations.SystemMetrics;
+        
+        // Verify metrics are reasonable
+        Assert.IsTrue(systemMetrics.ProcessorCount >= 1);
+        Assert.IsTrue(systemMetrics.ProcessorCount <= 128); // Reasonable upper bound
+        Assert.IsTrue(systemMetrics.WorkingSetBytes > 0);
+        Assert.IsTrue(systemMetrics.TotalMemoryBytes > systemMetrics.UsedMemoryBytes);
+        
+        // GC collections should be non-negative
+        Assert.IsTrue(systemMetrics.GCGen0Collections >= 0);
+        Assert.IsTrue(systemMetrics.GCGen1Collections >= 0);
+        Assert.IsTrue(systemMetrics.GCGen2Collections >= 0);
+        
+        // Thread pool metrics should be reasonable
+        Assert.IsTrue(systemMetrics.ThreadPoolWorkerThreads >= 0);
+        Assert.IsTrue(systemMetrics.ThreadPoolCompletionPortThreads >= 0);
+    }
+}
+
+[TestClass]
+public class PerformanceDataStructuresTests
+{
+    [TestMethod]
+    public void PerformanceMetrics_SupportsWithExpressions()
+    {
+        // Arrange
+        var original = new PerformanceMetrics(
+            OperationName: "TestOp",
+            CallCount: 10,
+            TotalResponseTime: TimeSpan.FromSeconds(5),
+            AverageResponseTime: TimeSpan.FromMilliseconds(500),
+            MinResponseTime: TimeSpan.FromMilliseconds(100),
+            MaxResponseTime: TimeSpan.FromMilliseconds(900),
+            FailureCount: 1,
+            LastFailure: "TimeoutException",
+            AverageMemoryUsage: 1024,
+            CacheHitRate: 0.85,
+            LastUpdated: DateTimeOffset.UtcNow
+        );
+        
+        // Act
+        var updated = original with { CallCount = 11, FailureCount = 2 };
+        
+        // Assert
+        Assert.AreEqual(10, original.CallCount);
+        Assert.AreEqual(11, updated.CallCount);
+        Assert.AreEqual(1, original.FailureCount);
+        Assert.AreEqual(2, updated.FailureCount);
+        Assert.AreEqual(original.OperationName, updated.OperationName);
+        Assert.AreEqual(original.AverageResponseTime, updated.AverageResponseTime);
+    }
+
+    [TestMethod]
+    public void PerformanceRecommendations_UsesFrozenCollections()
+    {
+        // Arrange
+        var recommendations = new List<PerformanceRecommendation>
+        {
+            new("Memory", "Test recommendation", "Test suggestion", RecommendationPriority.High)
+        };
+        
+        var operationMetrics = new Dictionary<string, PerformanceMetrics>
+        {
+            ["TestOp"] = new("TestOp", 1, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100),
+                TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100), 0, null, 0, 0.0, DateTimeOffset.UtcNow)
+        };
+        
+        // Act
+        var perfRecommendations = new PerformanceRecommendations(
+            GeneratedAt: DateTimeOffset.UtcNow,
+            Recommendations: recommendations.ToFrozenSet(),
+            SystemMetrics: new SystemMetrics(1000, 500, 1, 1, 1, 4, 4, 8, 2000),
+            OperationMetrics: operationMetrics.ToFrozenDictionary()
+        );
+        
+        // Assert
+        Assert.IsInstanceOfType(perfRecommendations.Recommendations, typeof(FrozenSet<PerformanceRecommendation>));
+        Assert.IsInstanceOfType(perfRecommendations.OperationMetrics, typeof(FrozenDictionary<string, PerformanceMetrics>));
+        Assert.AreEqual(1, perfRecommendations.Recommendations.Count);
+        Assert.AreEqual(1, perfRecommendations.OperationMetrics.Count);
+    }
+
+    [TestMethod]
+    public void CacheWarmingPlan_CalculatesEstimates()
+    {
+        // Arrange
+        var operations = new List<CacheWarmingOperation>
+        {
+            new("Op1", WarmingPriority.High, 1000.0, TimeSpan.FromSeconds(2)),
+            new("Op2", WarmingPriority.Medium, 500.0, TimeSpan.FromSeconds(1)),
+            new("Op3", WarmingPriority.Low, 200.0, TimeSpan.FromMilliseconds(500))
+        };
+        
+        // Act
+        var plan = new CacheWarmingPlan(
+            CreatedAt: DateTimeOffset.UtcNow,
+            Operations: operations.ToFrozenSet(),
+            EstimatedTotalBenefit: operations.Sum(op => op.EstimatedBenefit),
+            EstimatedPreloadDuration: operations.Max(op => op.RecommendedPreloadTime)
+        );
+        
+        // Assert
+        Assert.AreEqual(1700.0, plan.EstimatedTotalBenefit); // 1000 + 500 + 200
+        Assert.AreEqual(TimeSpan.FromSeconds(2), plan.EstimatedPreloadDuration); // Max of all durations
+        Assert.AreEqual(3, plan.Operations.Count);
+        Assert.IsInstanceOfType(plan.Operations, typeof(FrozenSet<CacheWarmingOperation>));
+    }
+
+    [TestMethod]
+    public void PerformanceEvent_CapturesTimestamp()
+    {
+        // Arrange
+        var beforeTimestamp = DateTimeOffset.UtcNow;
+        
+        // Act
+        var perfEvent = new PerformanceEvent(
+            Timestamp: DateTimeOffset.UtcNow,
+            OperationName: "TestOp",
+            Duration: TimeSpan.FromMilliseconds(100),
+            Success: true,
+            MemoryDelta: 1024
+        );
+        
+        var afterTimestamp = DateTimeOffset.UtcNow;
+        
+        // Assert
+        Assert.IsTrue(perfEvent.Timestamp >= beforeTimestamp);
+        Assert.IsTrue(perfEvent.Timestamp <= afterTimestamp);
+        Assert.AreEqual("TestOp", perfEvent.OperationName);
+        Assert.AreEqual(TimeSpan.FromMilliseconds(100), perfEvent.Duration);
+        Assert.IsTrue(perfEvent.Success);
+        Assert.AreEqual(1024, perfEvent.MemoryDelta);
+    }
+
+    [TestMethod]
+    public void RecommendationPriority_EnumValues()
+    {
+        // Assert
+        Assert.IsTrue(Enum.IsDefined(typeof(RecommendationPriority), RecommendationPriority.Low));
+        Assert.IsTrue(Enum.IsDefined(typeof(RecommendationPriority), RecommendationPriority.Medium));
+        Assert.IsTrue(Enum.IsDefined(typeof(RecommendationPriority), RecommendationPriority.High));
+        Assert.IsTrue(Enum.IsDefined(typeof(RecommendationPriority), RecommendationPriority.Critical));
+        
+        // Test ordering
+        Assert.IsTrue(RecommendationPriority.Low < RecommendationPriority.Medium);
+        Assert.IsTrue(RecommendationPriority.Medium < RecommendationPriority.High);
+        Assert.IsTrue(RecommendationPriority.High < RecommendationPriority.Critical);
+    }
+
+    [TestMethod]
+    public void WarmingPriority_EnumValues()
+    {
+        // Assert
+        Assert.IsTrue(Enum.IsDefined(typeof(WarmingPriority), WarmingPriority.Low));
+        Assert.IsTrue(Enum.IsDefined(typeof(WarmingPriority), WarmingPriority.Medium));
+        Assert.IsTrue(Enum.IsDefined(typeof(WarmingPriority), WarmingPriority.High));
+        Assert.IsTrue(Enum.IsDefined(typeof(WarmingPriority), WarmingPriority.Critical));
+        
+        // Test ordering
+        Assert.IsTrue(WarmingPriority.Low < WarmingPriority.Medium);
+        Assert.IsTrue(WarmingPriority.Medium < WarmingPriority.High);
+        Assert.IsTrue(WarmingPriority.High < WarmingPriority.Critical);
+    }
+
+    [TestMethod]
+    public void OptimizeCacheDuration_WithHighFrequencyOperation_ReturnsOptimizedShorterDuration()
+    {
+        // Arrange
+        const string operationType = "GetBuilds"; // High frequency operation
+        const string dataType = "builds";
+        
+        // Act
+        var duration = _service.OptimizeCacheDuration(operationType, dataType);
+        
+        // Assert
+        Assert.IsTrue(duration > TimeSpan.Zero);
+        Assert.IsTrue(duration <= TimeSpan.FromMinutes(1)); // Should be shorter for high frequency
+    }
+
+    [TestMethod]
+    public void OptimizeCacheDuration_WithStaticDataType_ReturnsLongerDuration()
+    {
+        // Arrange
+        const string operationType = "get";
+        const string dataType = "repositories";
+        
+        // Act
+        var duration = _service.OptimizeCacheDuration(operationType, dataType);
+        
+        // Assert
+        Assert.IsTrue(duration >= TimeSpan.FromHours(1)); // Static data should have longer cache
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithMultipleOperations_AccumulatesMetricsCorrectly()
+    {
+        // Arrange
+        const string operationName = "MultiTestOperation";
+        
+        // Act - Perform multiple operations with different durations
+        await _service.TrackPerformanceAsync(operationName, async ct =>
+        {
+            await Task.Delay(50, ct);
+            return "result1";
+        });
+        
+        await _service.TrackPerformanceAsync(operationName, async ct =>
+        {
+            await Task.Delay(30, ct);
+            return "result2";
+        });
+        
+        await _service.TrackPerformanceAsync(operationName, async ct =>
+        {
+            await Task.Delay(70, ct);
+            return "result3";
+        });
+        
+        // Assert
+        var recommendations = _service.GetPerformanceRecommendations();
+        Assert.IsTrue(recommendations.OperationMetrics.ContainsKey(operationName));
+        
+        var metrics = recommendations.OperationMetrics[operationName];
+        Assert.AreEqual(3, metrics.CallCount);
+        Assert.AreEqual(0, metrics.FailureCount);
+        Assert.IsTrue(metrics.MinResponseTime <= metrics.AverageResponseTime);
+        Assert.IsTrue(metrics.MaxResponseTime >= metrics.AverageResponseTime);
+    }
+
+    [TestMethod]
+    public async Task GetPerformanceRecommendations_WithMixedOperations_IncludesRelevantRecommendations()
+    {
+        // Arrange - Create operations with different characteristics
+        await _service.TrackPerformanceAsync("FastOperation", async ct =>
+        {
+            await Task.Delay(10, ct);
+            return "fast";
+        });
+        
+        await _service.TrackPerformanceAsync("SlowOperation", async ct =>
+        {
+            await Task.Delay(2000, ct); // Longer than threshold
+            return "slow";
+        });
+        
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        
+        // Assert
+        Assert.IsNotNull(recommendations);
+        Assert.IsTrue(recommendations.OperationMetrics.Count >= 2);
+        Assert.IsTrue(recommendations.SystemMetrics.ProcessorCount > 0);
+        Assert.IsTrue(recommendations.GeneratedAt <= DateTimeOffset.UtcNow);
+        
+        // Check if slow operation is flagged
+        var slowOpRecommendations = recommendations.Recommendations
+            .Where(r => r.Category == "SlowOperation");
+        Assert.IsTrue(slowOpRecommendations.Any());
+    }
+
+    [TestMethod]
+    public async Task CreateCacheWarmingPlan_WithVariousOperationFrequencies_PrioritizesCorrectly()
+    {
+        // Arrange - Create operations with different call patterns
+        
+        // High frequency operation
+        for (int i = 0; i < 50; i++)
+        {
+            await _service.TrackPerformanceAsync("HighFrequencyOp", async ct =>
+            {
+                await Task.Delay(20, ct);
+                return $"result_{i}";
+            });
+        }
+        
+        // Medium frequency operation
+        for (int i = 0; i < 15; i++)
+        {
+            await _service.TrackPerformanceAsync("MediumFrequencyOp", async ct =>
+            {
+                await Task.Delay(100, ct);
+                return $"result_{i}";
+            });
+        }
+        
+        // Low frequency operation
+        for (int i = 0; i < 3; i++)
+        {
+            await _service.TrackPerformanceAsync("LowFrequencyOp", async ct =>
+            {
+                await Task.Delay(500, ct);
+                return $"result_{i}";
+            });
+        }
+        
+        // Act
+        var plan = _service.CreateCacheWarmingPlan();
+        
+        // Assert
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.Operations.Count > 0);
+        Assert.IsTrue(plan.EstimatedTotalBenefit > 0);
+        Assert.IsTrue(plan.EstimatedPreloadDuration > TimeSpan.Zero);
+        
+        // High frequency operation should have higher estimated benefit
+        var highFreqOp = plan.Operations.FirstOrDefault(op => op.OperationName == "HighFrequencyOp");
+        var lowFreqOp = plan.Operations.FirstOrDefault(op => op.OperationName == "LowFrequencyOp");
+        
+        if (highFreqOp != null && lowFreqOp != null)
+        {
+            Assert.IsTrue(highFreqOp.EstimatedBenefit > lowFreqOp.EstimatedBenefit);
+        }
+    }
+
+    [TestMethod]
+    public void OptimizeAllocation_WithNullFactory_ThrowsException()
+    {
+        // Act & Assert
+        Assert.ThrowsException<ArgumentNullException>(() => 
+            _service.OptimizeAllocation<string>(null!));
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithNullOperationName_ThrowsException()
+    {
+        // Act & Assert
+        await Assert.ThrowsExceptionAsync<ArgumentNullException>(() =>
+            _service.TrackPerformanceAsync<string>(null!, ct => Task.FromResult("test")));
+    }
+
+    [TestMethod]
+    public async Task TrackPerformanceAsync_WithEmptyOperationName_ThrowsException()
+    {
+        // Act & Assert
+        await Assert.ThrowsExceptionAsync<ArgumentException>(() =>
+            _service.TrackPerformanceAsync<string>("", ct => Task.FromResult("test")));
+    }
+
+    [TestMethod]
+    public void SystemMetrics_ContainValidValues()
+    {
+        // Act
+        var recommendations = _service.GetPerformanceRecommendations();
+        var metrics = recommendations.SystemMetrics;
+        
+        // Assert - Verify all metrics are reasonable
+        Assert.IsTrue(metrics.ProcessorCount >= 1 && metrics.ProcessorCount <= 1024);
+        Assert.IsTrue(metrics.WorkingSetBytes > 0);
+        Assert.IsTrue(metrics.TotalMemoryBytes >= metrics.UsedMemoryBytes);
+        Assert.IsTrue(metrics.GCGen0Collections >= 0);
+        Assert.IsTrue(metrics.GCGen1Collections >= 0);
+        Assert.IsTrue(metrics.GCGen2Collections >= 0);
+        Assert.IsTrue(metrics.ThreadPoolWorkerThreads >= 0);
+        Assert.IsTrue(metrics.ThreadPoolCompletionPortThreads >= 0);
+    }
+}
