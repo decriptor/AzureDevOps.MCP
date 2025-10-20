@@ -29,7 +29,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
     <!-- Additional caching packages -->
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.10" />
     <!-- Security packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.6" />
     <!-- Replace vulnerable AzureKeyVault package with modern Azure SDK -->
